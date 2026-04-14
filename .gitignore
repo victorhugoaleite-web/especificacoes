@@ -1,0 +1,15 @@
+# Dev/patch scripts
+patch_*.py
+fix_*.py
+test_*.js
+_b64.txt
+
+# Local images (not part of the app)
+IMAGENS/
+
+# Other files
+*.pdf
+*.jpeg
+*.jpg
+*.png
+realize_dashboard.html
