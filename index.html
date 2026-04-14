@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
@@ -638,69 +638,249 @@ function buildPage(){
 function buildDash(){
   const isEmpty=S.prods.length===0&&S.arqs.length===0&&S.clis.length===0&&S.sessoes.length===0;
   if(isEmpty)return buildOnboarding();
-  const totItems=S.specs.length;
-  const concluidas=S.sessoes.filter(s=>s.status==='concluida').length;
+
+  /* ── helpers ─────────────────────────────────────── */
+  const parseVal=v=>{
+    if(!v)return 0;
+    const n=parseFloat(String(v).replace(/[R$\s.]/g,'').replace(',','.'));
+    return isNaN(n)?0:n;
+  };
+  const fmtVal=v=>v===0?'\u2014':'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const today=new Date();
+  const hrs=today.getHours();
+  const greeting=hrs<12?'Bom dia':hrs<18?'Boa tarde':'Boa noite';
+  const todayStr=today.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+
+  /* ── financial ───────────────────────────────────── */
+  const vendidas=S.sessoes.filter(s=>s.vendaStatus==='vendido');
+  const canceladas=S.sessoes.filter(s=>s.vendaStatus==='cancelado');
+  const emAberto=S.sessoes.filter(s=>s.status==='concluida'&&s.vendaStatus!=='vendido'&&s.vendaStatus!=='cancelado');
+  const valorVendido=vendidas.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+  const valorAberto=emAberto.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+  const valorCancelado=canceladas.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+
+  /* ── pipeline ────────────────────────────────────── */
+  const totSessoes=S.sessoes.length;
   const rascunhos=S.sessoes.filter(s=>s.status==='rascunho').length;
-  const sep=S.specs.filter(s=>s.separado==='SEPARADO').length;
-  const em=S.specs.filter(s=>s.separado==='EM SEPARAÇÃO').length;
-  const ns=S.specs.filter(s=>s.separado==='NÃO SEPARADO').length;
-  const cotar=S.specs.filter(s=>s.cotar==='COTAR').length;
-  const nCotar=S.specs.filter(s=>s.cotar==='NÃO COTAR').length;
-  const rclis=[...S.clis].slice(-5).reverse();
-  const semCotacao=S.specs.filter(s=>s.cotar==='COTAR'&&!s.preco&&!s.prazo).length;
-  const specsOk=S.sessoes.filter(s=>{const its=sessaoItems(s.id);return its.length>0&&!its.some(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo);}).length;
-  const parseVal=v=>{if(!v)return 0;const n=parseFloat(String(v).replace(/[R$\s.]/g,'').replace(',','.'));return isNaN(n)?0:n;};
-  const valorVendido=S.sessoes.filter(s=>s.vendaStatus==='vendido').reduce((a,s)=>a+parseVal(s.valorVenda),0);
-  const valorAberto=S.sessoes.filter(s=>s.status==='concluida'&&s.vendaStatus!=='vendido'&&s.vendaStatus!=='cancelado').reduce((a,s)=>a+parseVal(s.valorVenda),0);
-  const fmtVal=v=>v===0?'—':'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  return `<div style="max-width:980px;">
-    <div class="stat-grid">
-      ${sCard(S.prods.length,'Produtos no Catálogo','box','var(--accent-light)','var(--accent)','catalog')}
-      ${sCard(S.clis.length,'Clientes','person','var(--green-bg)','var(--green-text)','clis')}
-      ${sCard(S.sessoes.length,'Especificações','folder','var(--orange-bg)','var(--orange-text)','specs')}
-      ${sCard(concluidas,'Concluídas','check','var(--green-bg)','var(--green-text)','specs')}
-      ${sCard(rascunhos,'Em Rascunho','doc','rgba(0,0,0,.05)','var(--text-secondary)','specs')}
-      ${sCard(semCotacao,'Sem Cotação','box','var(--orange-bg)','var(--orange-text)','specs')}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
-      <div class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:4px;">
-        <div style="font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;">Valor Vendido</div>
-        <div style="font-size:22px;font-weight:700;color:var(--green-text);">${fmtVal(valorVendido)}</div>
-        <div style="font-size:11px;color:var(--text-tertiary);">${S.sessoes.filter(s=>s.vendaStatus==='vendido').length} venda${S.sessoes.filter(s=>s.vendaStatus==='vendido').length!==1?'s':''} concluída${S.sessoes.filter(s=>s.vendaStatus==='vendido').length!==1?'s':''}</div>
+  const concluidas=S.sessoes.filter(s=>s.status==='concluida').length;
+  const nVendidas=vendidas.length;
+  const pipeW=(n,tot)=>tot?Math.max(4,Math.round(n/tot*100)):0;
+
+  /* ── attention items ─────────────────────────────── */
+  const specsComPendencia=S.sessoes.filter(s=>sessaoItems(s.id).some(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo));
+  const specsVazias=S.sessoes.filter(s=>sessaoItems(s.id).length===0);
+  const rascunhosSemItem=S.sessoes.filter(s=>s.status==='rascunho'&&sessaoItems(s.id).length===0);
+  const hasAttention=specsComPendencia.length>0||rascunhosSemItem.length>0;
+
+  /* ── recent specs ────────────────────────────────── */
+  const recentSpecs=[...S.sessoes]
+    .sort((a,b)=>{
+      const ta=a.atualizadoEm||a.criadoEm||'';
+      const tb=b.atualizadoEm||b.criadoEm||'';
+      return tb.localeCompare(ta);
+    })
+    .slice(0,5);
+
+  /* ── status badge helper ─────────────────────────── */
+  const statusBadge=s=>{
+    if(s.vendaStatus==='vendido')return '<span class="pill pill-green" style="font-size:10px;">Vendido</span>';
+    if(s.vendaStatus==='cancelado')return '<span class="pill pill-gray" style="font-size:10px;">Cancelado</span>';
+    if(s.status==='concluida')return '<span class="pill pill-blue" style="font-size:10px;">Conclu\u00edda</span>';
+    return '<span class="pill pill-orange" style="font-size:10px;">Rascunho</span>';
+  };
+
+  /* ── mini stat pill helper ───────────────────────── */
+  const mStat=(val,label,color)=>`<div style="display:flex;flex-direction:column;align-items:center;padding:8px 14px;background:var(--bg-secondary);border-radius:8px;min-width:60px;"><div style="font-size:16px;font-weight:700;color:${color};">${val}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px;white-space:nowrap;">${label}</div></div>`;
+
+  return `<div style="max-width:1100px;">
+
+    <!-- ── HEADER ROW ── -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:18px;font-weight:700;color:var(--text);">${greeting}!</div>
+        <div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;text-transform:capitalize;">${todayStr}</div>
       </div>
-      <div class="card" style="padding:16px 20px;display:flex;flex-direction:column;gap:4px;">
-        <div style="font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;">Valor em Aberto</div>
-        <div style="font-size:22px;font-weight:700;color:var(--orange-text);">${fmtVal(valorAberto)}</div>
-        <div style="font-size:11px;color:var(--text-tertiary);">${S.sessoes.filter(s=>s.status==='concluida'&&s.vendaStatus!=='vendido'&&s.vendaStatus!=='cancelado').length} especificação${S.sessoes.filter(s=>s.status==='concluida'&&s.vendaStatus!=='vendido'&&s.vendaStatus!=='cancelado').length!==1?'s':''} em aberto</div>
-      </div>
+      <button class="btn btn-primary btn-sm" onclick="S.page='specs';S.editSpec=null;render()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;">
+        ${SVG('plus',14)} Nova Especifica\u00e7\u00e3o
+      </button>
     </div>
-    <div class="dash-grid">
-      <div class="card">
-        <div style="padding:14px 18px 6px;"><div class="card-title">Separação</div></div>
-        <div style="padding:4px 18px 16px;">
-          ${pBar('Separado',sep,totItems,'var(--green)')}
-          ${pBar('Em Separação',em,totItems,'var(--orange)')}
-          ${pBar('Não Separado',ns,totItems,'var(--red)')}
+
+    <!-- ── FINANCIAL ROW ── -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:20px;">
+
+      <div class="card" style="padding:20px 24px;border-left:3px solid var(--green-text);">
+        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Valor Vendido</div>
+        <div style="font-size:28px;font-weight:800;color:var(--green-text);line-height:1;">${fmtVal(valorVendido)}</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">${nVendidas} venda${nVendidas!==1?'s':''} fechada${nVendidas!==1?'s':''}</div>
+      </div>
+
+      <div class="card" style="padding:20px 24px;border-left:3px solid var(--orange-text);">
+        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Em Aberto</div>
+        <div style="font-size:28px;font-weight:800;color:var(--orange-text);line-height:1;">${fmtVal(valorAberto)}</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">${emAberto.length} especifica\u00e7\u00e3o${emAberto.length!==1?'es':''} conclu\u00edda${emAberto.length!==1?'s':''}</div>
+      </div>
+
+      <div class="card" style="padding:20px 24px;border-left:3px solid var(--text-tertiary);">
+        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Cancelado</div>
+        <div style="font-size:28px;font-weight:800;color:var(--text-secondary);line-height:1;">${fmtVal(valorCancelado)}</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">${canceladas.length} especifica\u00e7\u00e3o${canceladas.length!==1?'es':''} cancelada${canceladas.length!==1?'s':''}</div>
+      </div>
+
+    </div>
+
+    <!-- ── PIPELINE ROW ── -->
+    <div class="card" style="padding:20px 24px;margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:16px;">Pipeline de Especifica\u00e7\u00f5es</div>
+      <div style="display:flex;align-items:stretch;gap:0;">
+
+        <div style="flex:1;padding:14px 18px;background:var(--bg-secondary);border-radius:8px 0 0 8px;border:1px solid var(--border);">
+          <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Rascunho</div>
+          <div style="font-size:26px;font-weight:800;color:var(--text);">${rascunhos}</div>
+          <div style="margin-top:8px;height:4px;background:var(--border);border-radius:2px;">
+            <div style="height:4px;border-radius:2px;background:var(--text-tertiary);width:${pipeW(rascunhos,totSessoes)}%;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">${totSessoes?Math.round(rascunhos/totSessoes*100):0}% do total</div>
         </div>
-      </div>
-      <div class="card">
-        <div style="padding:14px 18px 6px;"><div class="card-title">Cotação</div></div>
-        <div style="padding:4px 18px 16px;">
-          ${pBar('A Cotar',cotar,totItems,'var(--accent)')}
-          ${pBar('Não Cotar',nCotar,totItems,'var(--red)')}
+
+        <div style="display:flex;align-items:center;padding:0 6px;color:var(--text-tertiary);font-size:16px;">&rsaquo;</div>
+
+        <div style="flex:1;padding:14px 18px;background:var(--bg-secondary);border:1px solid var(--border);border-left:none;">
+          <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Conclu\u00edda</div>
+          <div style="font-size:26px;font-weight:800;color:var(--accent);">${concluidas}</div>
+          <div style="margin-top:8px;height:4px;background:var(--border);border-radius:2px;">
+            <div style="height:4px;border-radius:2px;background:var(--accent);width:${pipeW(concluidas,totSessoes)}%;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">${totSessoes?Math.round(concluidas/totSessoes*100):0}% do total</div>
         </div>
-      </div>
-      <div style="padding:0 18px 14px;border-top:1px solid var(--border);margin-top:6px;"><div style="font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 8px;">Especificações com cotação pendente</div>${S.sessoes.filter(s=>sessaoItems(s.id).some(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo)).slice(0,5).map(s=>{const cli=S.clis.find(c=>c.id===s.clienteId);const fa=sessaoItems(s.id).filter(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo).length;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);"><div style="font-size:12px;font-weight:500;">${s.projeto||'Sem título'}</div><div style="display:flex;gap:6px;align-items:center;"><span style="font-size:11px;color:var(--text-tertiary);">${cli?cli.nome:''}</span><span class="pill pill-orange" style="font-size:10.5px;">${fa} item${fa!==1?'s':''}</span></div></div>`;}).join('')||'<div style="font-size:12px;color:var(--text-tertiary);padding:8px 0;">Sem pendências</div>'}</div>
-      <div class="card">
-        <div style="padding:14px 18px 10px;border-bottom:1px solid var(--border);"><div class="card-title">Clientes Recentes</div></div>
-        ${rclis.length===0?`<div class="empty" style="padding:20px;"><div class="empty-title" style="font-size:12px;">Sem clientes</div></div>`:
-          rclis.map(c=>{const a=S.arqs.find(a=>a.id===c.arquitetoId);const n=S.sessoes.filter(s=>s.clienteId===c.id).length;
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 18px;border-bottom:1px solid var(--border);">
-              <div><div style="font-weight:500;font-size:12.5px;">${c.nome}</div><div style="font-size:11px;color:var(--text-tertiary);">${a?a.nome:'—'}</div></div>
-              <span class="pill pill-gray">${n} spec${n!==1?'s':''}</span>
-            </div>`;}).join('')}
+
+        <div style="display:flex;align-items:center;padding:0 6px;color:var(--text-tertiary);font-size:16px;">&rsaquo;</div>
+
+        <div style="flex:1;padding:14px 18px;background:var(--bg-secondary);border-radius:0 8px 8px 0;border:1px solid var(--border);border-left:none;">
+          <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Vendida</div>
+          <div style="font-size:26px;font-weight:800;color:var(--green-text);">${nVendidas}</div>
+          <div style="margin-top:8px;height:4px;background:var(--border);border-radius:2px;">
+            <div style="height:4px;border-radius:2px;background:var(--green-text);width:${pipeW(nVendidas,totSessoes)}%;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">${totSessoes?Math.round(nVendidas/totSessoes*100):0}% do total</div>
+        </div>
+
       </div>
     </div>
+
+    <!-- ── QUICK STATS BAR ── -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;align-items:center;">
+      ${mStat(S.prods.length,'Produtos','var(--accent)')}
+      ${mStat(S.clis.length,'Clientes','var(--text)')}
+      ${mStat(S.arqs.length,'Arquitetos','var(--text)')}
+      ${mStat(S.specs.length,'Itens Total','var(--text-secondary)')}
+      ${mStat(specsVazias.length,'Specs Vazias','var(--orange-text)')}
+      ${mStat(specsComPendencia.length,'Cota\u00e7\u00e3o Pendente','var(--orange-text)')}
+    </div>
+
+    <!-- ── ATTENTION PANEL (conditional) ── -->
+    ${hasAttention?`
+    <div class="card" style="padding:0;margin-bottom:20px;border-left:3px solid var(--orange-text);">
+      <div style="padding:14px 20px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);">
+        ${SVG('box',14)}
+        <span style="font-size:12px;font-weight:700;color:var(--orange-text);text-transform:uppercase;letter-spacing:.6px;">Aten\u00e7\u00e3o Necess\u00e1ria</span>
+      </div>
+      ${specsComPendencia.length>0?`
+      <div style="padding:12px 20px;border-bottom:1px solid var(--border);">
+        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Cota\u00e7\u00e3o Pendente (${specsComPendencia.length})</div>
+        ${specsComPendencia.slice(0,5).map(s=>{
+          const cli=S.clis.find(c=>c.id===s.clienteId);
+          const fa=sessaoItems(s.id).filter(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo).length;
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="S.page=\'specs\';S.viewSpec=\'' +s.id+ '\';render()">'
+          +'<div style="font-size:12px;font-weight:500;">'+(s.projeto||'Sem t\u00edtulo')+'</div>'
+          +'<div style="display:flex;gap:6px;align-items:center;">'
+          +(cli?'<span style="font-size:11px;color:var(--text-tertiary);">'+cli.nome+'</span>':'')
+          +'<span class="pill pill-orange" style="font-size:10px;">'+fa+' item'+(fa!==1?'s':'')+'</span>'
+          +'</div></div>';
+        }).join('')}
+      </div>
+      `:''}${rascunhosSemItem.length>0?`
+      <div style="padding:12px 20px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Rascunhos sem itens (${rascunhosSemItem.length})</div>
+        ${rascunhosSemItem.slice(0,4).map(s=>{
+          const cli=S.clis.find(c=>c.id===s.clienteId);
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="S.page=\'specs\';S.viewSpec=\'' +s.id+ '\';render()">'
+          +'<div style="font-size:12px;font-weight:500;">'+(s.projeto||'Sem t\u00edtulo')+'</div>'
+          +(cli?'<span style="font-size:11px;color:var(--text-tertiary);">'+cli.nome+'</span>':'')
+          +'</div>';
+        }).join('')}
+      </div>
+      `:''}    </div>
+    `:''}    
+
+    <!-- ── BOTTOM ROW: Recent Specs + Counts ── -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;">
+
+      <!-- Recent Specs -->
+      <div class="card" style="padding:0;" onclick="S.page='specs';render()" title="Ver todas as especifica\u00e7\u00f5es">
+        <div style="padding:14px 20px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;">Especifica\u00e7\u00f5es Recentes</div>
+          <span style="font-size:10px;color:var(--accent);cursor:pointer;">ver todas &rsaquo;</span>
+        </div>
+        ${recentSpecs.length===0
+          ?'<div style="padding:20px;font-size:12px;color:var(--text-tertiary);">Nenhuma especifica\u00e7\u00e3o ainda.</div>'
+          :recentSpecs.map(s=>{
+            const cli=S.clis.find(c=>c.id===s.clienteId);
+            const arq=cli?S.arqs.find(a=>a.id===cli.arquitetoId):null;
+            const nItems=sessaoItems(s.id).length;
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="event.stopPropagation();S.page=\'specs\';S.viewSpec=\'' +s.id+ '\';render()">'
+            +'<div style="min-width:0;flex:1;margin-right:10px;">'
+            +'<div style="font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(s.projeto||'Sem t\u00edtulo')+'</div>'
+            +'<div style="font-size:10.5px;color:var(--text-tertiary);margin-top:1px;">'+(cli?cli.nome:'—')+(arq?' \u00b7 '+arq.nome:'')+'</div>'
+            +'</div>'
+            +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">'
+            +statusBadge(s)
+            +'<span style="font-size:10px;color:var(--text-tertiary);">'+nItems+' item'+(nItems!==1?'s':'')+'</span>'
+            +'</div>'
+            +'</div>';
+          }).join('')
+        }
+      </div>
+
+      <!-- Clients & Architects counts -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
+
+        <div class="card" style="padding:0;flex:1;cursor:pointer;" data-nav="clis">
+          <div style="padding:14px 20px 12px;border-bottom:1px solid var(--border);">
+            <div style="font-size:11px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;">Clientes</div>
+          </div>
+          <div style="padding:12px 20px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:30px;font-weight:800;color:var(--text);">${S.clis.length}</div>
+            <div style="font-size:11px;color:var(--text-tertiary);text-align:right;">
+              ${S.arqs.length} arquiteto${S.arqs.length!==1?'s':''}<br>
+              vinculado${S.arqs.length!==1?'s':''}
+            </div>
+          </div>
+          <div style="padding:0 20px 14px;">
+            ${[...S.clis].slice(-3).reverse().map(c=>{
+              const a=S.arqs.find(a=>a.id===c.arquitetoId);
+              const n=S.sessoes.filter(s=>s.clienteId===c.id).length;
+              return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--border);">'
+              +'<div style="font-size:11.5px;font-weight:500;">'+c.nome+'</div>'
+              +'<div style="display:flex;align-items:center;gap:5px;">'
+              +(a?'<span style="font-size:10px;color:var(--text-tertiary);">'+a.nome+'</span>':'')
+              +'<span class="pill pill-gray" style="font-size:10px;">'+n+' spec'+(n!==1?'s':'')+'</span>'
+              +'</div></div>';
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="card" style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;" data-nav="catalog">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Cat\u00e1logo</div>
+            <div style="font-size:24px;font-weight:800;color:var(--accent);">${S.prods.length}</div>
+            <div style="font-size:10.5px;color:var(--text-tertiary);margin-top:2px;">produto${S.prods.length!==1?'s':''} cadastrado${S.prods.length!==1?'s':''}</div>
+          </div>
+          <div style="opacity:.2;font-size:36px;">${SVG('box',32)}</div>
+        </div>
+
+      </div>
+    </div>
+
   </div>`;
 }
 function buildOnboarding(){
