@@ -2124,11 +2124,31 @@ async function fbLoad(){
       toast('\u2714 Primeira sincroniza\u00e7\u00e3o com a nuvem conclu\u00edda');
     }
     S.fbSyncStatus='synced';
+    autoBackupDaily();
   }catch(e){
     S.fbSyncStatus='error';
     toast('Erro ao sincronizar: '+e.message);
   }
   render();
+}
+
+// ── AUTO-BACKUP DIÁRIO ────────────────────────────────────────────
+function autoBackupDaily(){
+  try{
+    const today=new Date().toISOString().slice(0,10);
+    const lastKey='autoBackupDate';
+    const last=localStorage.getItem(lastKey);
+    if(last===today)return; // já fez backup hoje
+    if(!S.sessoes.length&&!S.clis.length&&!S.prods.length)return; // sem dados
+    const data={arqs:S.arqs,clis:S.clis,prods:S.prods,sessoes:S.sessoes,specs:S.specs,exportedAt:new Date().toISOString(),autoBackup:true};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`especificapro_autobackup_${today}.json`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    localStorage.setItem(lastKey,today);
+    console.log('[AutoBackup] Backup diário salvo:',today);
+  }catch(e){console.warn('[AutoBackup] Erro:',e);}
 }
 
 async function fbSaveAsync(){
