@@ -778,7 +778,7 @@ function buildDash(){
       const tb=b.atualizadoEm||b.criadoEm||'';
       return tb.localeCompare(ta);
     })
-    .slice(0,5);
+    .slice(0,8);
 
   /* ── status badge helper ─────────────────────────── */
   const statusBadge=s=>{
@@ -791,216 +791,408 @@ function buildDash(){
   /* ── mini stat pill helper ───────────────────────── */
   const mStat=(val,label,color)=>`<div style="display:flex;flex-direction:column;align-items:center;padding:8px 14px;background:var(--bg-secondary);border-radius:8px;min-width:60px;"><div style="font-size:16px;font-weight:700;color:${color};">${val}</div><div style="font-size:10px;color:var(--text-tertiary);margin-top:2px;white-space:nowrap;">${label}</div></div>`;
 
-  return `<div style="max-width:1100px;">
+  
+  /* ─── date / month helpers ─────────────────────────────────────── */
+  const nowDate=new Date();
+  const curYear=nowDate.getFullYear();
+  const curMonth=nowDate.getMonth();
+  const curDay=nowDate.getDate();
+  const isMes =s=>{const d=new Date(s.criadoEm||'');return d.getFullYear()===curYear&&d.getMonth()===curMonth;};
+  const isLastMes=s=>{const d=new Date(s.criadoEm||'');const lm=curMonth===0?11:curMonth-1;const ly=curMonth===0?curYear-1:curYear;return d.getFullYear()===ly&&d.getMonth()===lm;};
+  const isHoje=s=>{const d=new Date(s.criadoEm||'');return d.getFullYear()===curYear&&d.getMonth()===curMonth&&d.getDate()===curDay;};
+  const diasAberto=s=>{if(!s.criadoEm)return 0;return Math.max(0,Math.floor((nowDate-new Date(s.criadoEm))/86400000));};
+  const evoPct=(c,p)=>p===0?(c>0?100:0):Math.round((c-p)/Math.abs(p)*100);
+  const fmtK=v=>'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const evoTag=(p,invert)=>{
+    if(p===0)return '<span style="font-size:10px;color:var(--text-tertiary);">— vs mês ant.</span>';
+    const up=invert?p<0:p>0;
+    const col=up?'var(--green-text)':'var(--red, #ff3b30)';
+    const arr=up?'↑':'↓';
+    return '<span style="font-size:10.5px;font-weight:600;color:'+col+';">'+arr+' '+Math.abs(p)+'%</span><span style="font-size:10px;color:var(--text-tertiary);"> vs mês ant.</span>';
+  };
 
-    <!-- ── HEADER ROW ── -->
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;flex-wrap:wrap;gap:12px;">
-      <div>
-        <div style="font-size:18px;font-weight:700;color:var(--text);">${greeting}!</div>
-        <div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;text-transform:capitalize;">${todayStr}</div>
+  /* ─── monthly KPIs ──────────────────────────────────────────────── */
+  const sessoesMes    = S.sessoes.filter(isMes);
+  const sessoesMesAnt = S.sessoes.filter(isLastMes);
+  const sessoesHoje   = S.sessoes.filter(isHoje);
+
+  const vendidasMes    = sessoesMes.filter(s=>s.vendaStatus==='vendido');
+  const vendidasMesAnt = sessoesMesAnt.filter(s=>s.vendaStatus==='vendido');
+  const vendidasHoje   = sessoesHoje.filter(s=>s.vendaStatus==='vendido');
+  const valorVendMes   = vendidasMes.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+  const valorVendMesAnt= vendidasMesAnt.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+  const valorVendHoje  = vendidasHoje.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+  const evoVend = evoPct(valorVendMes, valorVendMesAnt);
+
+  // Valor Orçado = valorVenda de todas as specs (orçamento + venda)
+  const valorOrcMes   = sessoesMes.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+  const valorOrcMesAnt= sessoesMesAnt.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+  const valorOrcHoje  = sessoesHoje.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+  const evoOrc  = evoPct(valorOrcMes, valorOrcMesAnt);
+
+  const nEspecMes    = sessoesMes.length;
+  const nEspecMesAnt = sessoesMesAnt.length;
+  const nEspecHoje   = sessoesHoje.length;
+  const evoEspec = evoPct(nEspecMes, nEspecMesAnt);
+
+  // Taxa de conversão = vendidas / concluídas-ou-vendidas do mês
+  const finalizadasMes    = sessoesMes.filter(s=>s.status==='concluida'||s.vendaStatus==='vendido');
+  const finalizadasMesAnt = sessoesMesAnt.filter(s=>s.status==='concluida'||s.vendaStatus==='vendido');
+  const taxaMes    = finalizadasMes.length>0?Math.round(finalizadasMes.filter(s=>s.vendaStatus==='vendido').length/finalizadasMes.length*100):0;
+  const taxaMesAnt = finalizadasMesAnt.length>0?Math.round(finalizadasMesAnt.filter(s=>s.vendaStatus==='vendido').length/finalizadasMesAnt.length*100):0;
+  const evoTaxa = evoPct(taxaMes, taxaMesAnt);
+
+  /* ─── top arquitetos ────────────────────────────────────────────── */
+  const topArqs = S.arqs.map(a=>{
+    const cliIds=S.clis.filter(c=>c.arquitetoId===a.id).map(c=>c.id);
+    const arqSess=S.sessoes.filter(s=>cliIds.includes(s.clienteId));
+    const arqVend=arqSess.filter(s=>s.vendaStatus==='vendido');
+    return{nome:a.nome,escritorio:a.escritorio||'',nSpecs:arqSess.length,nVend:arqVend.length,
+           totalVend:arqVend.reduce((a,s)=>a+parseVal(s.valorVenda),0)};
+  }).filter(x=>x.nSpecs>0).sort((a,b)=>b.nSpecs-a.nSpecs).slice(0,10);
+
+  /* ─── alertas cotação (com dias em aberto e itens pendentes) ────── */
+  const alertasComp = specsComPendencia.map(s=>{
+    const cli=S.clis.find(c=>c.id===s.clienteId);
+    const items=sessaoItems(s.id);
+    const pendentes=items.filter(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo).length;
+    const total=items.filter(i=>i.cotar==='COTAR').length;
+    const dias=diasAberto(s);
+    return{s,cli,pendentes,total,dias,itensTotal:items.length};
+  }).sort((a,b)=>b.pendentes-a.pendentes);
+
+  /* ─── evolução anual ────────────────────────────────────────────── */
+  const mNomes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const anoData=mNomes.map((m,i)=>{
+    const ss=S.sessoes.filter(s=>{const d=new Date(s.criadoEm||'');return d.getFullYear()===curYear&&d.getMonth()===i;});
+    const vend=ss.filter(s=>s.vendaStatus==='vendido').reduce((a,s)=>a+parseVal(s.valorVenda),0);
+    const orc=ss.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+    return{m,vend,orc,n:ss.length,isCur:i===curMonth};
+  });
+  const maxAno=Math.max(...anoData.map(d=>Math.max(d.vend,d.orc)),1);
+
+  /* ─── materiais & marcas ────────────────────────────────────────── */
+  const tipoMap={},marcaMap={};
+  S.specs.forEach(i=>{
+    if(i.tipo&&i.tipo.trim())tipoMap[i.tipo.trim()]=(tipoMap[i.tipo.trim()]||0)+1;
+    if(i.marca&&i.marca.trim())marcaMap[i.marca.trim()]=(marcaMap[i.marca.trim()]||0)+1;
+  });
+  const topTipos=Object.entries(tipoMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const topMarcas=Object.entries(marcaMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxTipo=topTipos.length?topTipos[0][1]:1;
+  const maxMarca=topMarcas.length?topMarcas[0][1]:1;
+
+return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
+
+  <!-- ══ HEADER ══ -->
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <div style="font-size:22px;font-weight:800;color:var(--text);letter-spacing:-.5px;">${greeting}!</div>
+      <div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;text-transform:capitalize;">${todayStr}</div>
+    </div>
+    <button class="btn btn-primary" onclick="S.page='specs';S.editSpec=null;render()" style="display:flex;align-items:center;gap:7px;padding:10px 20px;font-size:13px;font-weight:600;">
+      ${SVG('plus',14)} Nova Especifica\u00e7\u00e3o
+    </button>
+  </div>
+
+  <!-- ══ ROW 1: KPIs ══ -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+
+    <!-- KPI 1: Valor Vendido -->
+    <div class="card" style="padding:20px 22px;border-top:3px solid var(--green-text);">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Valor Vendido</div>
+      <div style="font-size:30px;font-weight:800;color:var(--green-text);line-height:1;margin-bottom:10px;">${fmtK(valorVendMes)}</div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:10.5px;color:var(--text-tertiary);">Este m\u00eas</span>
+          <span style="font-size:10.5px;font-weight:600;color:var(--green-text);">${fmtK(valorVendMes)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:10.5px;color:var(--text-tertiary);">Hoje</span>
+          <span style="font-size:10.5px;font-weight:600;color:var(--text);">${valorVendHoje>0?fmtK(valorVendHoje):'—'}</span>
+        </div>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="S.page='specs';S.editSpec=null;render()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;">
-        ${SVG('plus',14)} Nova Especifica\u00e7\u00e3o
-      </button>
+      <div>${evoTag(evoVend)}</div>
     </div>
 
-    <!-- ── FINANCIAL ROW ── -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:20px;">
-
-      <div class="card" style="padding:20px 24px;border-left:3px solid var(--green-text);">
-        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Valor Vendido</div>
-        <div style="font-size:28px;font-weight:800;color:var(--green-text);line-height:1;">${fmtVal(valorVendido)}</div>
-        <div style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">${nVendidas} venda${nVendidas!==1?'s':''} fechada${nVendidas!==1?'s':''}</div>
+    <!-- KPI 2: Valor Orçado -->
+    <div class="card" style="padding:20px 22px;border-top:3px solid var(--accent);">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Valor Or\u00e7ado</div>
+      <div style="font-size:30px;font-weight:800;color:var(--accent);line-height:1;margin-bottom:10px;">${fmtK(valorOrcMes)}</div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:10.5px;color:var(--text-tertiary);">Este m\u00eas</span>
+          <span style="font-size:10.5px;font-weight:600;color:var(--accent);">${fmtK(valorOrcMes)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:10.5px;color:var(--text-tertiary);">Hoje</span>
+          <span style="font-size:10.5px;font-weight:600;color:var(--text);">${valorOrcHoje>0?fmtK(valorOrcHoje):'—'}</span>
+        </div>
       </div>
-
-      <div class="card" style="padding:20px 24px;border-left:3px solid var(--orange-text);">
-        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Em Aberto</div>
-        <div style="font-size:28px;font-weight:800;color:var(--orange-text);line-height:1;">${fmtVal(valorAberto)}</div>
-        <div style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">${emAberto.length} especifica\u00e7\u00e3o${emAberto.length!==1?'es':''} conclu\u00edda${emAberto.length!==1?'s':''}</div>
-      </div>
-
-      <div class="card" style="padding:20px 24px;border-left:3px solid var(--text-tertiary);">
-        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">Cancelado</div>
-        <div style="font-size:28px;font-weight:800;color:var(--text-secondary);line-height:1;">${fmtVal(valorCancelado)}</div>
-        <div style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">${canceladas.length} especifica\u00e7\u00e3o${canceladas.length!==1?'es':''} cancelada${canceladas.length!==1?'s':''}</div>
-      </div>
-
+      <div>${evoTag(evoOrc)}</div>
     </div>
 
-    <!-- ── PIPELINE ROW ── -->
-    <div class="card" style="padding:20px 24px;margin-bottom:20px;">
-      <div style="font-size:11px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.8px;margin-bottom:16px;">Pipeline de Especifica\u00e7\u00f5es</div>
-      <div style="display:flex;align-items:stretch;gap:0;">
+    <!-- KPI 3: Especificações -->
+    <div class="card" style="padding:20px 22px;border-top:3px solid var(--text-secondary);cursor:pointer;" onclick="S.page='specs';render()">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Especifica\u00e7\u00f5es</div>
+      <div style="font-size:30px;font-weight:800;color:var(--text);line-height:1;margin-bottom:10px;">${nEspecMes}</div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:10.5px;color:var(--text-tertiary);">Este m\u00eas</span>
+          <span style="font-size:10.5px;font-weight:600;color:var(--text);">${nEspecMes}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:10.5px;color:var(--text-tertiary);">Hoje</span>
+          <span style="font-size:10.5px;font-weight:600;color:var(--text);">${nEspecHoje}</span>
+        </div>
+      </div>
+      <div>${evoTag(evoEspec)}</div>
+    </div>
 
-        <div style="flex:1;padding:14px 18px;background:var(--bg-secondary);border-radius:8px 0 0 8px;border:1px solid var(--border);">
-          <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Rascunho</div>
-          <div style="font-size:26px;font-weight:800;color:var(--text);">${rascunhos}</div>
-          <div style="margin-top:8px;height:4px;background:var(--border);border-radius:2px;">
-            <div style="height:4px;border-radius:2px;background:var(--text-tertiary);width:${pipeW(rascunhos,totSessoes)}%;"></div>
+    <!-- KPI 4: Taxa de Conversão -->
+    <div class="card" style="padding:20px 22px;border-top:3px solid ${taxaMes>=50?'var(--green-text)':taxaMes>=25?'var(--orange-text)':'var(--red,#ff3b30)'};">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Taxa de Convers\u00e3o</div>
+      <div style="font-size:30px;font-weight:800;color:${taxaMes>=50?'var(--green-text)':taxaMes>=25?'var(--orange-text)':'var(--red,#ff3b30)'};line-height:1;margin-bottom:10px;">${taxaMes}%</div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:10.5px;color:var(--text-tertiary);">Vendidas</span>
+          <span style="font-size:10.5px;font-weight:600;color:var(--green-text);">${finalizadasMes.filter(s=>s.vendaStatus==='vendido').length}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:10.5px;color:var(--text-tertiary);">Finalizadas</span>
+          <span style="font-size:10.5px;font-weight:600;color:var(--text);">${finalizadasMes.length}</span>
+        </div>
+      </div>
+      <div>${evoTag(evoTaxa)}</div>
+    </div>
+
+  </div>
+
+  <!-- ══ ROW 2: Pipeline | Alertas | Arquitetos ══ -->
+  <div style="display:grid;grid-template-columns:1fr 1.15fr 1.05fr;gap:12px;align-items:start;">
+
+    <!-- Pipeline -->
+    <div class="card" style="padding:20px 22px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:16px;">Pipeline · ${totSessoes} total</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:12px;font-weight:600;color:var(--text);">Rascunho</span>
+            <span style="font-size:12px;font-weight:700;color:var(--text);">${rascunhos}</span>
           </div>
-          <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">${totSessoes?Math.round(rascunhos/totSessoes*100):0}% do total</div>
+          <div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;">
+            <div style="height:8px;border-radius:4px;background:var(--orange-text);width:${pipeW(rascunhos,totSessoes)}%;transition:width .5s;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">${totSessoes?Math.round(rascunhos/totSessoes*100):0}% do total</div>
         </div>
 
-        <div style="display:flex;align-items:center;padding:0 6px;color:var(--text-tertiary);font-size:16px;">&rsaquo;</div>
-
-        <div style="flex:1;padding:14px 18px;background:var(--bg-secondary);border:1px solid var(--border);border-left:none;">
-          <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Conclu\u00edda</div>
-          <div style="font-size:26px;font-weight:800;color:var(--accent);">${concluidas}</div>
-          <div style="margin-top:8px;height:4px;background:var(--border);border-radius:2px;">
-            <div style="height:4px;border-radius:2px;background:var(--accent);width:${pipeW(concluidas,totSessoes)}%;"></div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:12px;font-weight:600;color:var(--accent);">Conclu\u00edda</span>
+            <span style="font-size:12px;font-weight:700;color:var(--accent);">${concluidas}</span>
           </div>
-          <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">${totSessoes?Math.round(concluidas/totSessoes*100):0}% do total</div>
+          <div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;">
+            <div style="height:8px;border-radius:4px;background:var(--accent);width:${pipeW(concluidas,totSessoes)}%;transition:width .5s;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">${totSessoes?Math.round(concluidas/totSessoes*100):0}% do total</div>
         </div>
 
-        <div style="display:flex;align-items:center;padding:0 6px;color:var(--text-tertiary);font-size:16px;">&rsaquo;</div>
-
-        <div style="flex:1;padding:14px 18px;background:var(--bg-secondary);border-radius:0 8px 8px 0;border:1px solid var(--border);border-left:none;">
-          <div style="font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Vendida</div>
-          <div style="font-size:26px;font-weight:800;color:var(--green-text);">${nVendidas}</div>
-          <div style="margin-top:8px;height:4px;background:var(--border);border-radius:2px;">
-            <div style="height:4px;border-radius:2px;background:var(--green-text);width:${pipeW(nVendidas,totSessoes)}%;"></div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:12px;font-weight:600;color:var(--green-text);">Vendida</span>
+            <span style="font-size:12px;font-weight:700;color:var(--green-text);">${nVendidas}</span>
           </div>
-          <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">${totSessoes?Math.round(nVendidas/totSessoes*100):0}% do total</div>
+          <div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;">
+            <div style="height:8px;border-radius:4px;background:var(--green-text);width:${pipeW(nVendidas,totSessoes)}%;transition:width .5s;"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">${totSessoes?Math.round(nVendidas/totSessoes*100):0}% do total</div>
         </div>
 
       </div>
     </div>
 
-    <!-- ── QUICK STATS BAR ── -->
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;align-items:center;">
-      ${mStat(S.prods.length,'Produtos','var(--accent)')}
-      ${mStat(S.clis.length,'Clientes','var(--text)')}
-      ${mStat(S.arqs.length,'Arquitetos','var(--text)')}
-      ${mStat(S.specs.length,'Itens Total','var(--text-secondary)')}
-      ${mStat(specsVazias.length,'Specs Vazias','var(--orange-text)')}
-      ${mStat(specsComPendencia.length,'Cota\u00e7\u00e3o Pendente','var(--orange-text)')}
-    </div>
-
-    <!-- ── ATTENTION PANEL (conditional) ── -->
-    ${hasAttention?`
-    <div class="card" style="padding:0;margin-bottom:20px;border-left:3px solid var(--orange-text);">
-      <div style="padding:14px 20px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);">
-        ${SVG('box',14)}
-        <span style="font-size:12px;font-weight:700;color:var(--orange-text);text-transform:uppercase;letter-spacing:.6px;">Aten\u00e7\u00e3o Necess\u00e1ria</span>
+    <!-- Alertas: Cotação Pendente -->
+    <div class="card" style="padding:0;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--orange-text);">&#9888; Cota\u00e7\u00e3o Pendente</div>
+        <span class="pill pill-orange" style="font-size:10px;">${alertasComp.length}</span>
       </div>
-      ${specsComPendencia.length>0?`
-      <div style="padding:12px 20px;border-bottom:1px solid var(--border);">
-        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Cota\u00e7\u00e3o Pendente (${specsComPendencia.length})</div>
-        ${specsComPendencia.slice(0,5).map(s=>{
-          const cli=S.clis.find(c=>c.id===s.clienteId);
-          const fa=sessaoItems(s.id).filter(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo).length;
-          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="S.page=\'specs\';S.viewSpec=\'' +s.id+ '\';render()">'
-          +'<div style="font-size:12px;font-weight:500;">'+(s.projeto||'Sem t\u00edtulo')+'</div>'
-          +'<div style="display:flex;gap:6px;align-items:center;">'
-          +(cli?'<span style="font-size:11px;color:var(--text-tertiary);">'+cli.nome+'</span>':'')
-          +'<span class="pill pill-orange" style="font-size:10px;">'+fa+' item'+(fa!==1?'s':'')+'</span>'
-          +'</div></div>';
-        }).join('')}
-      </div>
-      `:''}${rascunhosSemItem.length>0?`
-      <div style="padding:12px 20px;">
-        <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Rascunhos sem itens (${rascunhosSemItem.length})</div>
-        ${rascunhosSemItem.slice(0,4).map(s=>{
-          const cli=S.clis.find(c=>c.id===s.clienteId);
-          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="S.page=\'specs\';S.viewSpec=\'' +s.id+ '\';render()">'
-          +'<div style="font-size:12px;font-weight:500;">'+(s.projeto||'Sem t\u00edtulo')+'</div>'
-          +(cli?'<span style="font-size:11px;color:var(--text-tertiary);">'+cli.nome+'</span>':'')
+      ${alertasComp.length===0
+        ?`<div style="padding:20px 18px;font-size:12px;color:var(--text-tertiary);text-align:center;">Nenhuma cota\u00e7\u00e3o pendente \u2714</div>`
+        :alertasComp.map(({s,cli,pendentes,total,dias,itensTotal})=>{
+          const diasColor=dias>14?'var(--red,#ff3b30)':dias>7?'var(--orange-text)':'var(--text-tertiary)';
+          const pct=total>0?Math.round((total-pendentes)/total*100):0;
+          return '<div style="padding:10px 18px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="S.page=\'specs\';S.viewSpec=\'' +s.id+ '\';render()">'
+          +'<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:5px;">'
+          +'<div style="min-width:0;flex:1;">'
+          +'<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(s.projeto||'Sem t\u00edtulo')+'</div>'
+          +(cli?'<div style="font-size:10.5px;color:var(--text-tertiary);">'+cli.nome+'</div>':'')
+          +'</div>'
+          +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-left:8px;flex-shrink:0;">'
+          +'<span style="font-size:10.5px;font-weight:700;color:'+diasColor+';">'+dias+'d em aberto</span>'
+          +'<span class="pill pill-orange" style="font-size:10px;">'+pendentes+' item'+(pendentes!==1?'s':'')+'</span>'
+          +'</div>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:6px;">'
+          +'<div style="flex:1;height:4px;background:var(--bg-secondary);border-radius:2px;">'
+          +'<div style="height:4px;border-radius:2px;background:var(--accent);width:'+pct+'%;"></div>'
+          +'</div>'
+          +'<span style="font-size:10px;color:var(--text-tertiary);flex-shrink:0;">'+(total-pendentes)+'/'+total+'</span>'
+          +'</div>'
           +'</div>';
-        }).join('')}
+        }).join('')
+      }
+    </div>
+
+    <!-- Top Arquitetos -->
+    <div class="card" style="padding:0;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Top Arquitetos</div>
       </div>
-      `:''}    </div>
-    `:''}    
-
-    <!-- ── BOTTOM ROW: Recent Specs + Counts ── -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;">
-
-      <!-- Recent Specs -->
-      <div class="card" style="padding:0;" onclick="S.page='specs';render()" title="Ver todas as especifica\u00e7\u00f5es">
-        <div style="padding:14px 20px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;">Especifica\u00e7\u00f5es Recentes</div>
-          <span style="font-size:10px;color:var(--accent);cursor:pointer;">ver todas &rsaquo;</span>
-        </div>
-        ${recentSpecs.length===0
-          ?'<div style="padding:20px;font-size:12px;color:var(--text-tertiary);">Nenhuma especifica\u00e7\u00e3o ainda.</div>'
-          :recentSpecs.map(s=>{
-            const cli=S.clis.find(c=>c.id===s.clienteId);
-            const arq=cli?S.arqs.find(a=>a.id===cli.arquitetoId):null;
-            const nItems=sessaoItems(s.id).length;
-            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="event.stopPropagation();S.page=\'specs\';S.viewSpec=\'' +s.id+ '\';render()">'
-            +'<div style="min-width:0;flex:1;margin-right:10px;">'
-            +'<div style="font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(s.projeto||'Sem t\u00edtulo')+'</div>'
-            +'<div style="font-size:10.5px;color:var(--text-tertiary);margin-top:1px;">'+(cli?cli.nome:'—')+(arq?' \u00b7 '+arq.nome:'')+'</div>'
+      ${topArqs.length===0
+        ?`<div style="padding:20px 18px;font-size:12px;color:var(--text-tertiary);text-align:center;">Nenhum arquiteto ainda.</div>`
+        :`<div style="padding:8px 0;">
+          <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:0;padding:4px 18px 8px;border-bottom:1px solid var(--border);">
+            <span style="font-size:9px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;">#</span>
+            <span style="font-size:9px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;padding-left:10px;">Arquiteto</span>
+            <span style="font-size:9px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;text-align:center;padding:0 8px;">Specs</span>
+            <span style="font-size:9px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;text-align:right;">Vendas</span>
+          </div>
+          ${topArqs.map((x,i)=>{
+            const maxN=topArqs[0].nSpecs;
+            const barW=maxN>0?Math.round(x.nSpecs/maxN*100):0;
+            return '<div style="display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:0;padding:7px 18px;border-bottom:1px solid var(--border);">'
+            +'<span style="font-size:10px;font-weight:700;color:var(--text-tertiary);min-width:14px;">'+(i+1)+'</span>'
+            +'<div style="padding-left:10px;min-width:0;">'
+            +'<div style="font-size:11.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+x.nome+'</div>'
+            +(x.escritorio?'<div style="font-size:9.5px;color:var(--text-tertiary);">'+x.escritorio+'</div>':'')
+            +'<div style="margin-top:3px;height:3px;background:var(--bg-secondary);border-radius:2px;">'
+            +'<div style="height:3px;border-radius:2px;background:var(--accent);width:'+barW+'%;"></div>'
             +'</div>'
-            +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">'
-            +statusBadge(s)
-            +'<span style="font-size:10px;color:var(--text-tertiary);">'+nItems+' item'+(nItems!==1?'s':'')+'</span>'
             +'</div>'
+            +'<span style="font-size:11px;font-weight:700;color:var(--text);text-align:center;padding:0 8px;">'+x.nSpecs+'</span>'
+            +'<span style="font-size:11px;font-weight:700;color:var(--green-text);text-align:right;">'+x.nVend+'</span>'
             +'</div>';
-          }).join('')
-        }
+          }).join('')}
+        </div>`
+      }
+    </div>
+
+  </div>
+
+  <!-- ══ ROW 3: Evolução Anual | Últimas Specs ══ -->
+  <div style="display:grid;grid-template-columns:1.8fr 1fr;gap:12px;align-items:start;">
+
+    <!-- Evolução Anual: bar chart -->
+    <div class="card" style="padding:20px 22px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Evolu\u00e7\u00e3o Anual ${curYear}</div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-tertiary);">
+            <span style="width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:.7;display:inline-block;"></span>Or\u00e7ado
+          </span>
+          <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-tertiary);">
+            <span style="width:10px;height:10px;border-radius:2px;background:var(--green-text);opacity:.85;display:inline-block;"></span>Vendido
+          </span>
+        </div>
       </div>
-
-      <!-- Clients & Architects counts -->
-      <div style="display:flex;flex-direction:column;gap:14px;">
-
-        <div class="card" style="padding:0;flex:1;cursor:pointer;" data-nav="clis">
-          <div style="padding:14px 20px 12px;border-bottom:1px solid var(--border);">
-            <div style="font-size:11px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;">Clientes</div>
-          </div>
-          <div style="padding:12px 20px;display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-size:30px;font-weight:800;color:var(--text);">${S.clis.length}</div>
-            <div style="font-size:11px;color:var(--text-tertiary);text-align:right;">
-              ${S.arqs.length} arquiteto${S.arqs.length!==1?'s':''}<br>
-              vinculado${S.arqs.length!==1?'s':''}
-            </div>
-          </div>
-          <div style="padding:0 20px 14px;">
-            ${[...S.clis].slice(-3).reverse().map(c=>{
-              const a=S.arqs.find(a=>a.id===c.arquitetoId);
-              const n=S.sessoes.filter(s=>s.clienteId===c.id).length;
-              return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--border);">'
-              +'<div style="font-size:11.5px;font-weight:500;">'+c.nome+'</div>'
-              +'<div style="display:flex;align-items:center;gap:5px;">'
-              +(a?'<span style="font-size:10px;color:var(--text-tertiary);">'+a.nome+'</span>':'')
-              +'<span class="pill pill-gray" style="font-size:10px;">'+n+' spec'+(n!==1?'s':'')+'</span>'
-              +'</div></div>';
-            }).join('')}
-          </div>
-        </div>
-
-        <div class="card" style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;" data-nav="catalog">
-          <div>
-            <div style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Cat\u00e1logo</div>
-            <div style="font-size:24px;font-weight:800;color:var(--accent);">${S.prods.length}</div>
-            <div style="font-size:10.5px;color:var(--text-tertiary);margin-top:2px;">produto${S.prods.length!==1?'s':''} cadastrado${S.prods.length!==1?'s':''}</div>
-          </div>
-          <div style="opacity:.2;font-size:36px;">${SVG('box',32)}</div>
-        </div>
-
+      <div style="overflow-x:auto;">
+        <svg viewBox="0 0 720 175" style="width:100%;min-width:520px;display:block;" xmlns="http://www.w3.org/2000/svg">
+          <!-- grid lines -->
+          ${[0.25,0.5,0.75,1].map(f=>{
+            const y=Math.round(140-f*120);
+            return '<line x1="30" y1="'+y+'" x2="710" y2="'+y+'" stroke="currentColor" stroke-opacity=".07" stroke-width="1"/>';
+          }).join('')}
+          <!-- bars -->
+          ${anoData.map((d,i)=>{
+            const orcH=maxAno>0?Math.round(d.orc/maxAno*120):0;
+            const vendH=maxAno>0?Math.round(d.vend/maxAno*120):0;
+            const x=30+i*57;
+            const highlight=d.isCur?'filter:drop-shadow(0 0 4px currentColor);':'';
+            return '<g>'
+            +'<rect x="'+(x)+'" y="'+(140-orcH)+'" width="22" height="'+orcH+'" rx="3" fill="var(--accent)" opacity="'+(d.isCur?.85:.55)+'"/>'
+            +'<rect x="'+(x+24)+'" y="'+(140-vendH)+'" width="22" height="'+vendH+'" rx="3" fill="var(--green-text)" opacity="'+(d.isCur?.9:.65)+'"/>'
+            +(d.isCur?'<rect x="'+(x-2)+'" y="143" width="50" height="2" rx="1" fill="var(--accent)" opacity=".6"/>':'')
+            +'<text x="'+(x+11)+'" y="163" text-anchor="middle" font-size="9.5" fill="'+(d.isCur?'var(--accent)':'currentColor')+'" opacity="'+(d.isCur?'1':'.5')+'" font-weight="'+(d.isCur?'700':'400')+'">'+d.m+'</text>'
+            +(d.n>0?'<text x="'+(x+11)+'" y="'+(Math.max(orcH,vendH)>10?137-Math.max(orcH,vendH):128)+'" text-anchor="middle" font-size="8" fill="currentColor" opacity=".4">'+d.n+'</text>':'')
+            +'</g>';
+          }).join('')}
+        </svg>
       </div>
     </div>
 
-  </div>`;
-}
-function buildOnboarding(){
-  const steps=[
-    {n:1,label:'Cadastre seus produtos',desc:'Produtos salvos no catálogo podem ser reutilizados em qualquer especificação.',page:'catalog',btn:'Ir ao Catálogo'},
-    {n:2,label:'Adicione os arquitetos',desc:'Vincule arquitetos aos seus clientes para organizar melhor os projetos.',page:'arqs',btn:'Ir a Arquitetos'},
-    {n:3,label:'Crie os clientes',desc:'Cada cliente agrupa suas especificações. Associe ao arquiteto responsável.',page:'clis',btn:'Ir a Clientes'},
-    {n:4,label:'Lance as especificações',desc:'Selecione o cliente, o projeto e adicione todos os produtos. Conclua ao finalizar.',page:'specs',btn:'Ir a Especificações'},
-  ];
-  return `<div style="max-width:560px;margin:0 auto;">
-    <div style="text-align:center;margin-bottom:28px;">
-      <img src="data:image/png;base64,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" style="width:52px;height:52px;object-fit:contain;display:block;margin:0 auto 14px;" class="sb-logo-img"/>
-      <div style="font-size:20px;font-weight:700;letter-spacing:-.4px;">Bem-vindo ao Especifica Realize!</div>
-      <div style="font-size:13px;color:var(--text-tertiary);margin-top:6px;">Siga os passos abaixo para começar</div>
+    <!-- Últimas Especificações -->
+    <div class="card" style="padding:0;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">\u00daltimas Especifica\u00e7\u00f5es</div>
+        <span style="font-size:11px;color:var(--accent);cursor:pointer;" onclick="S.page='specs';render()">ver todas &rsaquo;</span>
+      </div>
+      ${recentSpecs.length===0
+        ?`<div style="padding:24px 18px;font-size:12px;color:var(--text-tertiary);text-align:center;">Nenhuma ainda.</div>`
+        :recentSpecs.map(s=>{
+          const cli=S.clis.find(c=>c.id===s.clienteId);
+          const nItems=sessaoItems(s.id).length;
+          const dias=diasAberto(s);
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid var(--border);cursor:pointer;gap:8px;" onclick="S.page=\'specs\';S.viewSpec=\'' +s.id+ '\';render()">'
+          +'<div style="min-width:0;flex:1;">'
+          +'<div style="font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(s.projeto||'Sem t\u00edtulo')+'</div>'
+          +'<div style="font-size:10.5px;color:var(--text-tertiary);margin-top:1px;">'+(cli?cli.nome:'\u2014')+' \u00b7 '+nItems+' item'+(nItems!==1?'s':'')+' \u00b7 '+dias+'d</div>'
+          +'</div>'
+          +statusBadge(s)
+          +'</div>';
+        }).join('')
+      }
     </div>
-    <div class="onboarding">${steps.map(s=>`<div class="onboard-step">
-      <div class="onboard-num">${s.n}</div>
-      <div class="onboard-text" style="flex:1;"><strong>${s.label}</strong><span>${s.desc}</span></div>
-      <button class="btn btn-ghost btn-sm" data-nav="${s.page}">${s.btn}</button>
-    </div>`).join('')}</div>
-  </div>`;
+
+  </div>
+
+  <!-- ══ ROW 4: Materiais & Marcas ══ -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+    <!-- Tipos mais especificados -->
+    <div class="card" style="padding:20px 22px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Tipos de Material mais Especificados</div>
+      ${topTipos.length===0
+        ?`<div style="font-size:12px;color:var(--text-tertiary);">Nenhum tipo cadastrado ainda.</div>`
+        :topTipos.map(([tipo,n])=>{
+          const pct=maxTipo>0?Math.round(n/maxTipo*100):0;
+          return '<div style="margin-bottom:8px;">'
+          +'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+          +'<span style="font-size:12px;font-weight:500;color:var(--text);">'+tipo+'</span>'
+          +'<span style="font-size:11px;font-weight:700;color:var(--accent);">'+n+'</span>'
+          +'</div>'
+          +'<div style="height:6px;background:var(--bg-secondary);border-radius:3px;">'
+          +'<div style="height:6px;border-radius:3px;background:var(--accent);opacity:.75;width:'+pct+'%;"></div>'
+          +'</div>'
+          +'</div>';
+        }).join('')
+      }
+    </div>
+
+    <!-- Marcas mais especificadas -->
+    <div class="card" style="padding:20px 22px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Marcas mais Especificadas</div>
+      ${topMarcas.length===0
+        ?`<div style="font-size:12px;color:var(--text-tertiary);">Nenhuma marca cadastrada ainda.</div>`
+        :topMarcas.map(([marca,n])=>{
+          const pct=maxMarca>0?Math.round(n/maxMarca*100):0;
+          return '<div style="margin-bottom:8px;">'
+          +'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+          +'<span style="font-size:12px;font-weight:500;color:var(--text);">'+marca+'</span>'
+          +'<span style="font-size:11px;font-weight:700;color:var(--green-text);">'+n+'</span>'
+          +'</div>'
+          +'<div style="height:6px;background:var(--bg-secondary);border-radius:3px;">'
+          +'<div style="height:6px;border-radius:3px;background:var(--green-text);opacity:.75;width:'+pct+'%;"></div>'
+          +'</div>'
+          +'</div>';
+        }).join('')
+      }
+    </div>
+
+  </div>
+
+</div>`;
 }
 function sCard(v,l,ic,bg,color,nav){return`<div class="stat-card" data-nav="${nav}"><div><div class="stat-val">${v}</div><div class="stat-label">${l}</div></div><div class="stat-icon" style="background:${bg};color:${color};">${SVG(ic,18)}</div></div>`;}
 function pBar(l,v,t,c){const p=t?Math.round(v/t*100):0;return`<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--text-secondary);">${l}</span><span style="font-weight:600;">${v} <span style="color:var(--text-tertiary);font-weight:400;">(${p}%)</span></span></div><div class="progress-bar"><div class="progress-fill" style="width:${p}%;background:${c};"></div></div></div>`;}
@@ -1014,7 +1206,8 @@ function buildCatalog(){
   if(S.catTipo)list=list.filter(p=>p.tipo===S.catTipo);
   if(S.catMarca)list=list.filter(p=>p.marca===S.catMarca);
   const hasFilters=q||S.catTipo||S.catMarca;
-  return`<div class="card" style="max-width:1100px;">
+  return`<div style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+<div class="card" style="width:100%;">
     <div class="card-header">
       <div><div class="card-title">Catálogo de Produtos</div><div class="card-sub">${list.length} de ${S.prods.length} produto${S.prods.length!==1?'s':''}</div></div>
       <button class="btn btn-primary" id="btnNovoProd">${SVG('plus',13)} Novo Produto</button>
@@ -1050,14 +1243,94 @@ function buildCatalog(){
           </td>
         </tr>`;}).join('')}</tbody>
     </table></div>
-  </div>`;
+  </div>
+
+<!-- RIGHT PANEL -->
+<div style="display:flex;flex-direction:column;gap:12px;">
+
+  <div class="card" style="padding:18px 20px;">
+    <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Produtos</span>
+        <span style="font-size:18px;font-weight:800;color:var(--accent);">${S.prods.length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Marcas</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);">${[...new Set(S.prods.map(p=>p.marca).filter(Boolean))].length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Tipos</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);">${[...new Set(S.prods.map(p=>p.tipo).filter(Boolean))].length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Com imagem</span>
+        <span style="font-size:14px;font-weight:700;color:var(--green-text);">${S.prods.filter(p=>p.imagemPrincipal).length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Itens especificados</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);">${S.specs.length}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:0;">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Top Marcas</div>
+    </div>
+    ${(()=>{
+      const m={};S.prods.forEach(p=>{if(p.marca)m[p.marca]=(m[p.marca]||0)+1;});
+      const top=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      const mx=top.length?top[0][1]:1;
+      return top.map(([marca,n])=>{
+        const pct=Math.round(n/mx*100);
+        return '<div style="padding:9px 16px;border-bottom:1px solid var(--border);">'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+        +'<span style="font-size:11.5px;font-weight:500;color:var(--text);">'+marca+'</span>'
+        +'<span style="font-size:11px;font-weight:700;color:var(--accent);">'+n+'</span>'
+        +'</div>'
+        +'<div style="height:3px;background:var(--bg-secondary);border-radius:2px;">'
+        +'<div style="height:3px;border-radius:2px;background:var(--accent);opacity:.7;width:'+pct+'%;"></div>'
+        +'</div>'
+        +'</div>';
+      }).join('');
+    })()}
+  </div>
+
+  <div class="card" style="padding:0;">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Top Tipos</div>
+    </div>
+    ${(()=>{
+      const m={};S.prods.forEach(p=>{if(p.tipo)m[p.tipo]=(m[p.tipo]||0)+1;});
+      const top=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      const mx=top.length?top[0][1]:1;
+      return top.map(([tipo,n])=>{
+        const pct=Math.round(n/mx*100);
+        return '<div style="padding:9px 16px;border-bottom:1px solid var(--border);">'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+        +'<span style="font-size:11.5px;font-weight:500;color:var(--text);">'+tipo+'</span>'
+        +'<span style="font-size:11px;font-weight:700;color:var(--green-text);">'+n+'</span>'
+        +'</div>'
+        +'<div style="height:3px;background:var(--bg-secondary);border-radius:2px;">'
+        +'<div style="height:3px;border-radius:2px;background:var(--green-text);opacity:.7;width:'+pct+'%;"></div>'
+        +'</div>'
+        +'</div>';
+      }).join('');
+    })()}
+  </div>
+
+</div>
+
+</div>`;
 }
 
 // ===== ARQUITETOS =====
 function buildArqs(){
   const q=(S.arqSearch||'').toLowerCase();
   const list=q?S.arqs.filter(a=>a.nome.toLowerCase().includes(q)||(a.escritorio||'').toLowerCase().includes(q)||(a.email||'').toLowerCase().includes(q)):S.arqs;
-  return`<div class="card" style="max-width:900px;">
+  return`<div style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+<div class="card" style="width:100%;">
     <div class="card-header"><div class="card-title">Arquitetos</div>
       <button class="btn btn-primary" id="btnNovoArq">${SVG('plus',13)} Novo Arquiteto</button>
     </div>
@@ -1078,7 +1351,65 @@ function buildArqs(){
           </td>
         </tr>`;}).join('')}</tbody>
     </table></div>
-  </div>`;
+  </div>
+
+<!-- RIGHT PANEL -->
+<div style="display:flex;flex-direction:column;gap:12px;">
+
+  <div class="card" style="padding:18px 20px;">
+    <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Total</span>
+        <span style="font-size:18px;font-weight:800;color:var(--text);">${S.arqs.length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Com clientes</span>
+        <span style="font-size:14px;font-weight:700;color:var(--accent);">${S.arqs.filter(a=>S.clis.some(c=>c.arquitetoId===a.id)).length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Escrit\u00f3rios</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);">${[...new Set(S.arqs.filter(a=>a.escritorio).map(a=>a.escritorio))].length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Total clientes</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);">${S.clis.length}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:0;">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Mais Ativos</div>
+    </div>
+    ${[...S.arqs].map(a=>{
+      const nCli=S.clis.filter(c=>c.arquitetoId===a.id).length;
+      const nSpec=S.sessoes.filter(s=>{const c=S.clis.find(c=>c.id===s.clienteId);return c&&c.arquitetoId===a.id;}).length;
+      return{a,nCli,nSpec};
+    }).filter(x=>x.nCli>0).sort((a,b)=>b.nSpec-a.nSpec).slice(0,6).map(({a,nCli,nSpec})=>{
+      const maxSpec=Math.max(1,...S.arqs.map(ar=>{const c=S.clis.filter(c=>c.arquitetoId===ar.id).length;const s=S.sessoes.filter(s=>{const cl=S.clis.find(c=>c.id===s.clienteId);return cl&&cl.arquitetoId===ar.id;}).length;return s;}));
+      const pct=Math.round(nSpec/maxSpec*100);
+      return '<div style="padding:10px 16px;border-bottom:1px solid var(--border);">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+      +'<div style="min-width:0;flex:1;">'
+      +'<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+a.nome+'</div>'
+      +(a.escritorio?'<div style="font-size:10px;color:var(--text-tertiary);">'+a.escritorio+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:8px;">'
+      +'<span style="font-size:10.5px;font-weight:700;color:var(--accent);">'+nSpec+' specs</span>'
+      +'<span style="font-size:10px;color:var(--text-tertiary);">'+nCli+' cli</span>'
+      +'</div>'
+      +'</div>'
+      +'<div style="height:3px;background:var(--bg-secondary);border-radius:2px;">'
+      +'<div style="height:3px;border-radius:2px;background:var(--accent);opacity:.7;width:'+pct+'%;"></div>'
+      +'</div>'
+      +'</div>';
+    }).join('')}
+  </div>
+
+</div>
+
+</div>`;
 }
 
 // ===== CLIENTES =====
@@ -1088,7 +1419,8 @@ function buildClis(){
   if(q)list=list.filter(c=>c.nome.toLowerCase().includes(q)||(c.obra||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)||(c.tel||'').toLowerCase().includes(q));
   if(S.cliArqId)list=list.filter(c=>c.arquitetoId===S.cliArqId);
   const hasFilters=q||S.cliArqId;
-  return`<div class="card" style="max-width:1000px;">
+  return`<div style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+<div class="card" style="width:100%;">
     <div class="card-header">
       <div><div class="card-title">Clientes</div><div class="card-sub">${list.length} de ${S.clis.length} cliente${S.clis.length!==1?'s':''}</div></div>
       <button class="btn btn-primary" id="btnNovoCli">${SVG('plus',13)} Novo Cliente</button>
@@ -1120,7 +1452,63 @@ function buildClis(){
           </td>
         </tr>`;}).join('')}</tbody>
     </table></div>
-  </div>`;
+  </div>
+
+<!-- RIGHT PANEL -->
+<div style="display:flex;flex-direction:column;gap:12px;">
+
+  <div class="card" style="padding:18px 20px;">
+    <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Total</span>
+        <span style="font-size:18px;font-weight:800;color:var(--text);">${S.clis.length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Com specs</span>
+        <span style="font-size:14px;font-weight:700;color:var(--accent);">${S.clis.filter(c=>S.sessoes.some(s=>s.clienteId===c.id)).length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Sem specs</span>
+        <span style="font-size:14px;font-weight:700;color:var(--orange-text);">${S.clis.filter(c=>!S.sessoes.some(s=>s.clienteId===c.id)).length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Arquitetos</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);">${S.arqs.length}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:0;">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Por Arquiteto</div>
+    </div>
+    ${S.arqs.map(a=>{
+      const nCli=S.clis.filter(c=>c.arquitetoId===a.id).length;
+      const nSpec=S.sessoes.filter(s=>{const c=S.clis.find(c=>c.id===s.clienteId);return c&&c.arquitetoId===a.id;}).length;
+      const maxCli=Math.max(1,...S.arqs.map(ar=>S.clis.filter(c=>c.arquitetoId===ar.id).length));
+      const pct=Math.round(nCli/maxCli*100);
+      return '<div style="padding:10px 16px;border-bottom:1px solid var(--border);">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+      +'<div style="min-width:0;flex:1;">'
+      +'<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+a.nome+'</div>'
+      +(a.escritorio?'<div style="font-size:10px;color:var(--text-tertiary);">'+a.escritorio+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:8px;">'
+      +'<span style="font-size:10.5px;font-weight:700;color:var(--text);">'+nCli+' cli</span>'
+      +'<span style="font-size:10px;color:var(--text-tertiary);">'+nSpec+' specs</span>'
+      +'</div>'
+      +'</div>'
+      +'<div style="height:3px;background:var(--bg-secondary);border-radius:2px;">'
+      +'<div style="height:3px;border-radius:2px;background:var(--accent);opacity:.7;width:'+pct+'%;"></div>'
+      +'</div>'
+      +'</div>';
+    }).join('')}
+  </div>
+
+</div>
+
+</div>`;
 }
 
 // ===== SPECS LIST =====
@@ -1134,7 +1522,8 @@ function buildSpecsList(){
   const _q=S.fItemSearch.trim().toLowerCase();
   if(_q)list=list.filter(s=>sessaoItems(s.id).some(i=>(i.produto||'').toLowerCase().includes(_q)||(i.referencia||'').toLowerCase().includes(_q)||(i.codigo||'').toLowerCase().includes(_q)));
 
-  return`<div style="max-width:1100px;">
+  return`<div style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
       <div>
         <div style="font-size:18px;font-weight:700;letter-spacing:-.3px;">Especificações</div>
@@ -1201,6 +1590,7 @@ function buildSpecsList(){
         <div class="spec-card-meta">
           ${arq?`<span class="pill pill-blue" style="font-size:11px;">${arq.nome}</span>`:''}
           <span class="pill pill-gray">${items.length} produto${items.length!==1?'s':''}</span>
+          ${s.criadoEm?`<span class="pill pill-gray" style="font-size:10px;">${Math.max(0,Math.floor((new Date()-new Date(s.criadoEm))/86400000))}d em aberto</span>`:''}
           ${(()=>{const fa=items.filter(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo).length;const tot=items.filter(i=>i.cotar==='COTAR').length;if(tot===0)return '';if(fa===0)return '<span class="pill pill-green" style="font-size:10.5px;">cotado ✓</span>';return `<span class="pill pill-orange" style="font-size:10.5px;">${fa} sem cot.</span>`;})()}
           ${sep>0?`<span class="pill pill-green">${sep} separado${sep!==1?'s':''}</span>`:''}
         </div>
@@ -1214,7 +1604,74 @@ function buildSpecsList(){
         </div>
       </div>`;
     }).join('')}</div>`}
-  </div>`;
+  </div>
+
+<!-- RIGHT PANEL -->
+<div style="display:flex;flex-direction:column;gap:12px;">
+
+  <div class="card" style="padding:18px 20px;">
+    <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Total</span>
+        <span style="font-size:18px;font-weight:800;color:var(--text);">${S.sessoes.length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Rascunho</span>
+        <span style="font-size:14px;font-weight:700;color:var(--orange-text);">${S.sessoes.filter(s=>s.status==='rascunho').length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Conclu\u00edda</span>
+        <span style="font-size:14px;font-weight:700;color:var(--accent);">${S.sessoes.filter(s=>s.status==='concluida').length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Vendida</span>
+        <span style="font-size:14px;font-weight:700;color:var(--green-text);">${S.sessoes.filter(s=>s.vendaStatus==='vendido').length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-tertiary);">Cancelada</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text-tertiary);">${S.sessoes.filter(s=>s.vendaStatus==='cancelado').length}</span>
+      </div>
+    </div>
+  </div>
+
+  ${(()=>{
+    const pendentes=S.sessoes.filter(s=>sessaoItems(s.id).some(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo));
+    if(pendentes.length===0)return '';
+    return '<div class="card" style="padding:0;border-left:3px solid var(--orange-text);">'
+    +'<div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--orange-text);">Cota\u00e7\u00e3o Pendente</span>'
+    +'<span class="pill pill-orange" style="font-size:10px;">'+pendentes.length+'</span>'
+    +'</div>'
+    +pendentes.slice(0,5).map(s=>{
+      const cli=S.clis.find(c=>c.id===s.clienteId);
+      const items=sessaoItems(s.id);
+      const nPend=items.filter(i=>i.cotar==='COTAR'&&!i.preco&&!i.prazo).length;
+      const dias=Math.max(0,Math.floor((new Date()-new Date(s.criadoEm||''))/86400000));
+      const diasColor=dias>14?'var(--red,#ff3b30)':dias>7?'var(--orange-text)':'var(--text-tertiary)';
+      return '<div style="padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="S.page=\'specs\';S.viewSpec=\''+s.id+'\';render()">'
+      +'<div style="display:flex;justify-content:space-between;align-items:start;">'
+      +'<div style="min-width:0;flex:1;">'
+      +'<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(s.projeto||'Sem t\u00edtulo')+'</div>'
+      +(cli?'<div style="font-size:10.5px;color:var(--text-tertiary);">'+cli.nome+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-left:6px;">'
+      +'<span style="font-size:10px;font-weight:700;color:'+diasColor+';">'+dias+'d</span>'
+      +'<span class="pill pill-orange" style="font-size:10px;">'+nPend+'</span>'
+      +'</div>'
+      +'</div>'
+      +'</div>';
+    }).join('')
+    +'</div>';
+  })()}
+
+  <button class="btn btn-primary btn-sm" id="btnNovaSpecSide" style="width:100%;justify-content:center;padding:10px;" onclick="S.page=\'specs\';S.editSpec=null;render()">
+    ${SVG('plus',13)} Nova Especifica\u00e7\u00e3o
+  </button>
+
+</div>
+
+</div>`;
 }
 
 // ===== SPEC EDITOR =====
