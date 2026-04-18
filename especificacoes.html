@@ -377,6 +377,10 @@ body.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);}
 .mob-page-header{display:none;}
 .mob-page-fab{display:none;}
 
+/* ===== MOBILE SPEC EDITOR HEADER ===== */
+.mob-spec-header{display:none;}
+.mob-spec-back{display:none;}
+
 /* ===== AVATAR MENU ===== */
 .dash-avatar{cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;user-select:none;}
 .avatar-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:999;overflow:hidden;animation:fadeIn .15s ease;}
@@ -667,6 +671,61 @@ body.dark .topbar-hamburger:hover{background:rgba(255,255,255,.13);}
   }
   /* Ocultar header do card nas páginas que têm mob-page-header */
   .mob-card-header-hide{display:none!important;}
+
+  /* ── SPEC EDITOR HEADER (mobile) ── */
+  /* Header sticky com back + título + status */
+  .mob-spec-header{
+    display:flex!important;
+    align-items:center!important;
+    gap:12px!important;
+    padding:14px 16px 12px!important;
+    background:#000!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:20!important;
+    border-bottom:0.5px solid rgba(255,255,255,.08)!important;
+  }
+  .mob-spec-back{
+    display:flex!important;
+    width:34px!important;
+    height:34px!important;
+    border-radius:50%!important;
+    background:rgba(255,255,255,.1)!important;
+    align-items:center!important;
+    justify-content:center!important;
+    cursor:pointer!important;
+    flex-shrink:0!important;
+    color:#fff!important;
+    border:none!important;
+    -webkit-tap-highlight-color:transparent!important;
+  }
+  .mob-spec-info{
+    flex:1!important;
+    min-width:0!important;
+  }
+  .mob-spec-title{
+    font-size:20px!important;
+    font-weight:700!important;
+    color:#fff!important;
+    letter-spacing:-.3px!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  .mob-spec-sub{
+    font-size:12px!important;
+    color:rgba(255,255,255,.5)!important;
+    margin-top:2px!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  /* Ocultar editor-header desktop (substituído pelo mob-spec-header) */
+  .editor-header{display:none!important;}
+  /* Card do editor: sem radius no topo (flui do header) */
+  .spec-editor-card{border-radius:12px!important;margin:0 0 12px!important;}
+  /* Botão Adicionar Produto no mobile: full width, estilo verde */
+  #btnAddRow{width:100%!important;justify-content:center!important;border-radius:12px!important;padding:12px!important;font-size:14px!important;}
 
   /* Sidebar oculto no mobile */
   .sidebar{display:none!important;}
@@ -1991,8 +2050,33 @@ function buildSpecEditor(){
   const items=sessaoItems(sessao.id);
   const isConc=sessao.status==='concluida';
 
+  /* ── Mobile header: back + título + status ── */
+  const statusPill=isConc
+    ?`<span class="pill pill-green" style="font-size:11px;flex-shrink:0;">Concluída</span>`
+    :`<span class="pill pill-orange" style="font-size:11px;flex-shrink:0;">Rascunho</span>`;
+  const vendaPill=sessao.vendaStatus==='vendido'
+    ?`<span class="pill" style="background:rgba(50,215,75,.15);color:#32d74b;font-size:11px;flex-shrink:0;">Vendida</span>`
+    :sessao.vendaStatus==='cancelado'
+    ?`<span class="pill" style="background:rgba(255,59,48,.15);color:#ff3b30;font-size:11px;flex-shrink:0;">Cancelada</span>`:'';
+
   return`<div style="max-width:1400px;">
-    <!-- Context header -->
+
+    <!-- MOBILE HEADER: sticky, Fitness-style -->
+    <div class="mob-spec-header">
+      <button class="mob-spec-back" onclick="S.page='specs';S.activeSessaoId=null;render()" title="Voltar">
+        ${SVG('back',18)}
+      </button>
+      <div class="mob-spec-info">
+        <div class="mob-spec-title">${sessao.projeto||'Sem título'}</div>
+        <div class="mob-spec-sub">${cli?cli.nome:'—'}${arq?' · '+arq.nome:''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        ${statusPill}
+        ${vendaPill}
+      </div>
+    </div>
+
+    <!-- DESKTOP Context header (oculto no mobile) -->
     <div class="editor-header">
       <div class="editor-meta">
         <div class="editor-meta-field">
@@ -2012,7 +2096,7 @@ function buildSpecEditor(){
     </div>
 
     <!-- Items table -->
-    <div class="card">
+    <div class="card spec-editor-card">
       <div class="card-header">
         <div>
           <div class="card-title">Produtos da Especificação</div>
