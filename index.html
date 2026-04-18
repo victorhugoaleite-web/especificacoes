@@ -364,6 +364,7 @@ body.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);}
 
 /* ===== MOBILE BOTTOM TAB BAR ===== */
 .dash-avatar{display:none;}
+/* Tab bar base — oculto no desktop */
 .mob-tabbar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(20,20,22,.97);backdrop-filter:blur(24px) saturate(2);-webkit-backdrop-filter:blur(24px) saturate(2);padding-bottom:env(safe-area-inset-bottom);border-radius:24px 24px 0 0;box-shadow:0 -2px 32px rgba(0,0,0,.45);}
 .mob-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 2px 8px;border:none;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent;min-width:0;overflow:hidden;}
 .mob-tab-pill{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 10px 6px;border-radius:14px;color:rgba(255,255,255,.38);font-size:10px;font-weight:500;letter-spacing:.1px;transition:background .2s,color .2s;width:100%;max-width:72px;}
@@ -371,6 +372,19 @@ body.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);}
 .mob-tab.on .mob-tab-pill{background:rgba(50,50,56,.85);color:#32d74b;}
 .mob-tab.on .mob-tab-pill svg{opacity:1;color:#32d74b;}
 .mob-tab-pill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center;}
+
+/* ===== MOBILE PAGE HEADER ===== */
+.mob-page-header{display:none;}
+.mob-page-fab{display:none;}
+
+/* ===== AVATAR MENU ===== */
+.dash-avatar{cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;user-select:none;}
+.avatar-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:999;overflow:hidden;animation:fadeIn .15s ease;}
+.avatar-menu-email{padding:12px 14px 8px;font-size:11px;color:var(--text-tertiary);border-bottom:1px solid var(--border);word-break:break-all;}
+.avatar-menu-btn{display:flex;align-items:center;gap:8px;width:100%;padding:11px 14px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:var(--text);text-align:left;transition:background .12s;}
+.avatar-menu-btn:hover{background:var(--bg-secondary);}
+.avatar-menu-btn.danger{color:#ff3b30;}
+.avatar-menu-btn.primary{color:var(--accent);}
 /* ===== UTIL ===== */
 @media(max-width:480px){.hide-xs{display:none!important;}}
 
@@ -574,44 +588,85 @@ body.dark .topbar-hamburger:hover{background:rgba(255,255,255,.13);}
   .pill-orange{background:rgba(255,159,10,.15)!important;color:#ff9f0a!important;}
   .pill-gray{background:rgba(255,255,255,.1)!important;color:rgba(255,255,255,.5)!important;}
 
-  /* ── TAB BAR: Apple Fitness style ── */
+  /* ── TAB BAR: Apple Fitness FLOATING ── */
   .mob-tabbar{
     display:flex!important;
-    background:rgba(28,28,32,.98)!important;
-    backdrop-filter:blur(24px) saturate(2)!important;
-    -webkit-backdrop-filter:blur(24px) saturate(2)!important;
-    border-radius:22px 22px 0 0!important;
-    box-shadow:0 -1px 0 rgba(255,255,255,.07),0 -8px 32px rgba(0,0,0,.6)!important;
-    padding:8px 4px 0!important;
-    padding-bottom:calc(8px + env(safe-area-inset-bottom))!important;
+    left:12px!important;
+    right:12px!important;
+    bottom:calc(8px + env(safe-area-inset-bottom))!important;
+    border-radius:26px!important;          /* FLUTUANTE: raio em todos os cantos */
+    background:rgba(28,28,32,.96)!important;
+    backdrop-filter:blur(28px) saturate(2.2)!important;
+    -webkit-backdrop-filter:blur(28px) saturate(2.2)!important;
+    box-shadow:0 8px 32px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.07) inset!important;
+    padding:6px 4px!important;
+    padding-bottom:6px!important;          /* sem safe-area (já no bottom) */
     border-top:none!important;
     gap:0!important;
-    align-items:flex-start!important;
+    align-items:center!important;
   }
   .mob-tab{
     padding:0!important;
     flex:1!important;
     min-width:0!important;
     overflow:hidden!important;
-    justify-content:flex-start!important;
+    justify-content:center!important;
     align-items:center!important;
   }
   .mob-tab-pill{
     padding:7px 10px 6px!important;
-    border-radius:16px!important;
-    max-width:72px!important;
+    border-radius:18px!important;
+    max-width:70px!important;
     color:rgba(255,255,255,.4)!important;
     transition:background .22s cubic-bezier(.4,0,.2,1),color .22s!important;
     width:100%!important;
   }
   .mob-tab-pill svg{width:22px!important;height:22px!important;opacity:.5!important;transition:opacity .22s!important;}
   .mob-tab-pill span{font-size:9px!important;font-weight:500!important;letter-spacing:.1px!important;}
-  /* Pill ativa: cor destacada para contraste Fitness */
-  .mob-tab.on .mob-tab-pill{
-    background:rgba(255,255,255,.1)!important;
-    color:#32d74b!important;
+  .mob-tab.on .mob-tab-pill{background:rgba(255,255,255,.12)!important;color:#32d74b!important;}
+  .mob-tab.on .mob-tab-pill svg{opacity:1!important;color:#32d74b!important;}
+
+  /* Page content: mais padding-bottom para o tab bar flutuante + gap */
+  .page-content{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important;}
+
+  /* ── MOBILE PAGE HEADER ── */
+  .mob-page-header{
+    display:flex!important;
+    justify-content:space-between!important;
+    align-items:flex-start!important;
+    padding:20px 16px 14px!important;
+    background:#000!important;
   }
-  .mob-tab.on .mob-tab-pill svg{opacity:1!important;color:#32d74b!important;fill:#32d74b!important;}
+  .mob-page-title{
+    font-size:32px!important;
+    font-weight:700!important;
+    color:#fff!important;
+    letter-spacing:-.5px!important;
+    line-height:1!important;
+  }
+  .mob-page-sub{
+    font-size:14px!important;
+    color:rgba(255,255,255,.5)!important;
+    margin-top:4px!important;
+  }
+  /* FAB circular no canto direito do header */
+  .mob-page-fab{
+    display:flex!important;
+    width:36px!important;
+    height:36px!important;
+    border-radius:50%!important;
+    background:rgba(255,255,255,.14)!important;
+    border:none!important;
+    color:#fff!important;
+    align-items:center!important;
+    justify-content:center!important;
+    cursor:pointer!important;
+    flex-shrink:0!important;
+    -webkit-tap-highlight-color:transparent!important;
+    margin-top:4px!important;
+  }
+  /* Ocultar header do card nas páginas que têm mob-page-header */
+  .mob-card-header-hide{display:none!important;}
 
   /* Sidebar oculto no mobile */
   .sidebar{display:none!important;}
@@ -699,7 +754,7 @@ let S={
   editorClienteId:'',          // selected client in editor header
   editorProjeto:'',            // project text in editor header
   addRow:false, addData:{}, editItemId:null, editData:{},
-  acQuery:'',acResults:[],acOpen:false,acSel:-1,
+  acQuery:'',acResults:[],acOpen:false,acSel:-1,avatarMenu:false,
   // catalog/search
   catSearch:'', catTipo:'', catMarca:'',
   cliSearch:'', cliArqId:'',
@@ -770,6 +825,8 @@ const ico={
   sun:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
   folder:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`,
   ham:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
+  logout:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
+  cloud:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>`,
 };
 const SVG=(k,s=16,cls='')=>`<span style="display:inline-flex;align-items:center;width:${s}px;height:${s}px;flex-shrink:0;" class="${cls}">${(ico[k]||'').replace('<svg ','<svg width="'+s+'" height="'+s+'" ')}</span>`;
 
@@ -802,7 +859,7 @@ function buildMobTabbar(){
     {id:'catalog',label:'Catálogo',ico:'box'},
     {id:'arqs',label:'Arquitetos',ico:'people'},
     {id:'clis',label:'Clientes',ico:'person'},
-    {id:'specs',label:'Specs',ico:'folder'},
+    {id:'specs',label:'Especificações',ico:'folder'},
   ];
   return `<div class="mob-tabbar">
     ${tabs.map(t=>{
@@ -942,6 +999,20 @@ function buildPage(){
   if(S.page==='specs')return buildSpecsList();
   if(S.page==='spec-editor')return buildSpecEditor();
   return '';
+}
+
+// ── Mobile page header (Fitness style) ──────────────────────────────────────
+function mobHdr(title, sub, modalKey){
+  const today=new Date();
+  const todayStr=today.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  const fab=modalKey?`<button class="mob-page-fab" onclick="S.modal='${modalKey}';S.editItem=null;S._err={};render()">${SVG('plus',18)}</button>`:'';
+  return `<div class="mob-page-header">
+    <div>
+      <div class="mob-page-title">${title}</div>
+      <div class="mob-page-sub">${sub}</div>
+    </div>
+    ${fab}
+  </div>`;
 }
 
 // ===== DASHBOARD =====
@@ -1105,7 +1176,24 @@ return `<div class="dash-content" style="width:100%;display:flex;flex-direction:
       <button class="btn btn-primary dash-nova-btn" onclick="S.page='specs';S.editSpec=null;render()" style="display:flex;align-items:center;gap:7px;padding:10px 20px;font-size:13px;font-weight:600;">
         ${SVG('plus',14)} Nova Especifica\u00e7\u00e3o
       </button>
-      <div class="dash-avatar">${(S.user?.email||'U')[0].toUpperCase()}</div>
+      <div class="dash-avatar" id="dashAvatar" onclick="S.avatarMenu=!S.avatarMenu;render()" title="${S.fbUser?'Conta: '+S.fbUser.email:'Entrar na nuvem'}">
+        ${(S.fbUser?.email||S.user?.email||'U')[0].toUpperCase()}
+        ${S.avatarMenu?`<div class="avatar-menu" id="avatarMenuEl" onclick="event.stopPropagation()">
+          ${S.fbUser
+            ?`<div class="avatar-menu-email">${S.fbUser.email}</div>
+               <button class="avatar-menu-btn" onclick="navigator.clipboard?.writeText('${S.fbUser.email}');toast('E-mail copiado')">
+                 ${SVG('person',14)} ${S.fbUser.displayName||S.fbUser.email}
+               </button>
+               <button class="avatar-menu-btn danger" onclick="S.avatarMenu=false;fbLogout()">
+                 ${SVG('logout',14)} Sair da nuvem
+               </button>`
+            :`<div class="avatar-menu-email">Nenhuma conta conectada</div>
+               <button class="avatar-menu-btn primary" onclick="S.avatarMenu=false;fbLogin()">
+                 ${SVG('cloud',14)} Entrar com Google
+               </button>`
+          }
+        </div>`:''}
+      </div>
     </div>
   </div>
 
@@ -1424,9 +1512,10 @@ function buildCatalog(){
   if(S.catTipo)list=list.filter(p=>p.tipo===S.catTipo);
   if(S.catMarca)list=list.filter(p=>p.marca===S.catMarca);
   const hasFilters=q||S.catTipo||S.catMarca;
-  return`<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+  return mobHdr('Catálogo',`${S.prods.length} produto${S.prods.length!==1?'s':''}`,'prod')+
+  `<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
 <div class="card" style="width:100%;">
-    <div class="card-header">
+    <div class="card-header mob-card-header-hide">
       <div><div class="card-title">Catálogo de Produtos</div><div class="card-sub">${list.length} de ${S.prods.length} produto${S.prods.length!==1?'s':''}</div></div>
       <button class="btn btn-primary" id="btnNovoProd">${SVG('plus',13)} Novo Produto</button>
     </div>
@@ -1547,9 +1636,10 @@ function buildCatalog(){
 function buildArqs(){
   const q=(S.arqSearch||'').toLowerCase();
   const list=q?S.arqs.filter(a=>a.nome.toLowerCase().includes(q)||(a.escritorio||'').toLowerCase().includes(q)||(a.email||'').toLowerCase().includes(q)):S.arqs;
-  return`<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+  return mobHdr('Arquitetos',`${S.arqs.length} arquiteto${S.arqs.length!==1?'s':''}`,'arq')+
+  `<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
 <div class="card" style="width:100%;">
-    <div class="card-header"><div class="card-title">Arquitetos</div>
+    <div class="card-header mob-card-header-hide"><div class="card-title">Arquitetos</div>
       <button class="btn btn-primary" id="btnNovoArq">${SVG('plus',13)} Novo Arquiteto</button>
     </div>
     <div class="filter-bar"><div class="search-wrap"><span class="search-ico">${SVG('search',13)}</span>
@@ -1637,9 +1727,10 @@ function buildClis(){
   if(q)list=list.filter(c=>c.nome.toLowerCase().includes(q)||(c.obra||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)||(c.tel||'').toLowerCase().includes(q));
   if(S.cliArqId)list=list.filter(c=>c.arquitetoId===S.cliArqId);
   const hasFilters=q||S.cliArqId;
-  return`<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+  return mobHdr('Clientes',`${S.clis.length} cliente${S.clis.length!==1?'s':''}`,'cli')+
+  `<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
 <div class="card" style="width:100%;">
-    <div class="card-header">
+    <div class="card-header mob-card-header-hide">
       <div><div class="card-title">Clientes</div><div class="card-sub">${list.length} de ${S.clis.length} cliente${S.clis.length!==1?'s':''}</div></div>
       <button class="btn btn-primary" id="btnNovoCli">${SVG('plus',13)} Novo Cliente</button>
     </div>
@@ -1740,12 +1831,14 @@ function buildSpecsList(){
   const _q=S.fItemSearch.trim().toLowerCase();
   if(_q)list=list.filter(s=>sessaoItems(s.id).some(i=>(i.produto||'').toLowerCase().includes(_q)||(i.referencia||'').toLowerCase().includes(_q)||(i.codigo||'').toLowerCase().includes(_q)));
 
-  return`<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+  const nConc=S.sessoes.filter(s=>s.status==='concluida').length;
+  return mobHdr('Especificações',`${S.sessoes.length} spec${S.sessoes.length!==1?'s':''} · ${nConc} concluída${nConc!==1?'s':''}`,'nova-spec')+
+  `<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
 <div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;" class="mob-card-header-hide">
       <div>
         <div style="font-size:18px;font-weight:700;letter-spacing:-.3px;">Especificações</div>
-        <div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;">${S.sessoes.length} especificação${S.sessoes.length!==1?'s':''} · ${S.sessoes.filter(s=>s.status==='concluida').length} concluída${S.sessoes.filter(s=>s.status==='concluida').length!==1?'s':''}</div>
+        <div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;">${S.sessoes.length} especificação${S.sessoes.length!==1?'s':''} · ${nConc} concluída${nConc!==1?'s':''}</div>
       </div>
       <button class="btn btn-primary" id="btnNovaSpec">${SVG('plus',13)} Nova Especificação</button>
     </div>
@@ -2743,6 +2836,15 @@ function saveNewFromQuery(){
 function bind(){
   // Clean up any previous AC outside-click listener to avoid accumulation
   if(window._acOutsideRef){document.removeEventListener('mousedown',window._acOutsideRef);window._acOutsideRef=null;}
+  // Close avatar menu when clicking outside
+  if(window._avatarOutsideRef){document.removeEventListener('mousedown',window._avatarOutsideRef);window._avatarOutsideRef=null;}
+  if(S.avatarMenu){
+    window._avatarOutsideRef=e=>{
+      const av=document.getElementById('dashAvatar');
+      if(av&&!av.contains(e.target)){S.avatarMenu=false;reRenderAC();render();}
+    };
+    document.addEventListener('mousedown',window._avatarOutsideRef);
+  }
   document.querySelectorAll('[data-nav]').forEach(el=>el.onclick=()=>{
     S.page=el.dataset.nav;S.addRow=false;S._err={};S.activeSessaoId=null;
     if(S.sidebarOpen)toggleSidebar();
