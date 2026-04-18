@@ -363,6 +363,7 @@ body.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);}
 .pwa-banner-close:hover{background:rgba(255,255,255,.2);}
 
 /* ===== MOBILE BOTTOM TAB BAR ===== */
+.dash-avatar{display:none;}
 .mob-tabbar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(29,29,31,.97);backdrop-filter:blur(20px) saturate(1.8);-webkit-backdrop-filter:blur(20px) saturate(1.8);border-top:1px solid rgba(255,255,255,.09);padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;}
 .mob-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;border:none;background:none;cursor:pointer;color:rgba(255,255,255,.45);font-size:10px;font-weight:500;letter-spacing:.1px;-webkit-tap-highlight-color:transparent;transition:color .15s;}
 .mob-tab.on{color:#0071e3;}
@@ -454,6 +455,54 @@ body.dark .topbar-hamburger:hover{background:rgba(255,255,255,.13);}
   /* ── Two-column layout collapse ── */
   .two-col-layout{grid-template-columns:1fr!important;}
   .mob-hide-panel{display:none!important;}
+
+  /* ══════════════════════════════════════════════
+     APPLE FITNESS – MOBILE REDESIGN
+  ══════════════════════════════════════════════ */
+  /* Fundo preto total */
+  body{background:#000!important;}
+  /* Ocultar topbar */
+  .topbar{display:none!important;}
+  /* Page content: sem padding extra, padding-bottom p/ tab bar */
+  .page-content{padding:0!important;padding-bottom:calc(83px + env(safe-area-inset-bottom))!important;background:#000!important;}
+  /* Dash content: padding lateral como Fitness */
+  .dash-content{padding:24px 16px 0!important;gap:14px!important;background:#000!important;}
+  /* Header greeting */
+  .dash-greeting{font-size:34px!important;font-weight:700!important;letter-spacing:-.5px!important;color:#fff!important;}
+  .dash-date{font-size:15px!important;color:rgba(255,255,255,.5)!important;margin-top:4px!important;text-transform:capitalize!important;}
+  /* Avatar circle */
+  .dash-avatar{display:flex!important;width:36px!important;height:36px!important;border-radius:50%!important;background:#32d74b!important;align-items:center!important;justify-content:center!important;font-size:15px!important;font-weight:700!important;color:#000!important;flex-shrink:0!important;}
+  /* Botão Nova Spec: esconder no mobile */
+  .dash-nova-btn{display:none!important;}
+  /* Cards: fundo escuro, sem borda, sem sombra, radius maior */
+  .card{background:#1c1c1e!important;border:none!important;border-radius:16px!important;box-shadow:none!important;color:#fff!important;}
+  .card-header{background:transparent!important;border-bottom-color:rgba(255,255,255,.08)!important;}
+  /* Textos dentro dos cards no dark */
+  .card .text-muted,.card [style*="color:var(--text-secondary)"],
+  .card [style*="color:var(--text-tertiary)"]{color:rgba(255,255,255,.5)!important;}
+  /* KPI cards: gap menor */
+  .dash-kpi-row{gap:10px!important;}
+  /* Tab bar: estilo Fitness */
+  .mob-tabbar{background:rgba(28,28,30,.98)!important;border-top:0.5px solid rgba(255,255,255,.12)!important;backdrop-filter:blur(24px) saturate(1.8)!important;-webkit-backdrop-filter:blur(24px) saturate(1.8)!important;}
+  /* Tabs inativos */
+  .mob-tab{color:rgba(255,255,255,.36)!important;font-size:10px!important;gap:2px!important;padding:10px 0 6px!important;}
+  .mob-tab svg{width:26px!important;height:26px!important;opacity:1!important;}
+  /* Tab ativo: verde Apple */
+  .mob-tab.on{color:#32d74b!important;}
+  .mob-tab.on svg{opacity:1!important;}
+  /* Section titles (card headers) */
+  .dash-content .card-header .card-title{color:#fff!important;font-size:17px!important;font-weight:600!important;}
+  /* Backgrounds secundários dentro de cards */
+  .card [style*="background:var(--bg-secondary)"],
+  .card [style*="background:var(--surface"],
+  .card [style*="background:var(--surface2"]{background:rgba(255,255,255,.07)!important;}
+  /* Progress bars */
+  .card [style*="background:var(--border)"]{background:rgba(255,255,255,.1)!important;}
+  /* Pills */
+  .pill-green{background:rgba(50,215,75,.15)!important;color:#32d74b!important;}
+  .pill-blue{background:rgba(0,122,255,.15)!important;color:#0a84ff!important;}
+  .pill-orange{background:rgba(255,159,10,.15)!important;color:#ff9f0a!important;}
+  .pill-gray{background:rgba(255,255,255,.1)!important;color:rgba(255,255,255,.5)!important;}
 }
 
 /* ===== SMALL MOBILE (<=480px) ===== */
@@ -915,17 +964,20 @@ function buildDash(){
   const maxTipo=topTipos.length?topTipos[0][1]:1;
   const maxMarca=topMarcas.length?topMarcas[0][1]:1;
 
-return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
+return `<div class="dash-content" style="width:100%;display:flex;flex-direction:column;gap:16px;">
 
   <!-- ══ HEADER ══ -->
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+  <div class="dash-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
     <div>
-      <div style="font-size:22px;font-weight:800;color:var(--text);letter-spacing:-.5px;">${greeting}!</div>
-      <div style="font-size:12px;color:var(--text-tertiary);margin-top:2px;text-transform:capitalize;">${todayStr}</div>
+      <div class="dash-greeting" style="font-size:22px;font-weight:800;color:var(--text);letter-spacing:-.5px;">${greeting}!</div>
+      <div class="dash-date" style="font-size:12px;color:var(--text-tertiary);margin-top:2px;text-transform:capitalize;">${todayStr}</div>
     </div>
-    <button class="btn btn-primary" onclick="S.page='specs';S.editSpec=null;render()" style="display:flex;align-items:center;gap:7px;padding:10px 20px;font-size:13px;font-weight:600;">
-      ${SVG('plus',14)} Nova Especifica\u00e7\u00e3o
-    </button>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="btn btn-primary dash-nova-btn" onclick="S.page='specs';S.editSpec=null;render()" style="display:flex;align-items:center;gap:7px;padding:10px 20px;font-size:13px;font-weight:600;">
+        ${SVG('plus',14)} Nova Especifica\u00e7\u00e3o
+      </button>
+      <div class="dash-avatar">${(S.user?.email||'U')[0].toUpperCase()}</div>
+    </div>
   </div>
 
   <!-- ══ ROW 1: KPIs ══ -->
