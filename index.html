@@ -253,7 +253,7 @@ body.dark .pill-gray{background:rgba(255,255,255,.08);}
 .spec-card-actions{display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
 
 /* SPEC EDITOR */
-.editor-header{background:var(--surface);backdrop-filter:var(--glass-blur-sm);-webkit-backdrop-filter:var(--glass-blur-sm);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:16px 20px;margin-bottom:16px;}
+.editor-header{background:var(--surface);backdrop-filter:var(--glass-blur-sm);-webkit-backdrop-filter:var(--glass-blur-sm);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:14px 20px;margin-bottom:8px;}
 .editor-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
 .editor-meta-field label{font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;}
 .editor-footer{background:var(--surface);backdrop-filter:var(--glass-blur-sm);-webkit-backdrop-filter:var(--glass-blur-sm);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:14px 20px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;}
@@ -362,6 +362,12 @@ body.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);}
 .pwa-banner-close{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.12);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.7);flex-shrink:0;}
 .pwa-banner-close:hover{background:rgba(255,255,255,.2);}
 
+/* ===== MOBILE BOTTOM TAB BAR ===== */
+.mob-tabbar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(29,29,31,.97);backdrop-filter:blur(20px) saturate(1.8);-webkit-backdrop-filter:blur(20px) saturate(1.8);border-top:1px solid rgba(255,255,255,.09);padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;}
+.mob-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;border:none;background:none;cursor:pointer;color:rgba(255,255,255,.45);font-size:10px;font-weight:500;letter-spacing:.1px;-webkit-tap-highlight-color:transparent;transition:color .15s;}
+.mob-tab.on{color:#0071e3;}
+.mob-tab svg{transition:opacity .15s;opacity:.55;}
+.mob-tab.on svg{opacity:1;}
 /* ===== UTIL ===== */
 @media(max-width:480px){.hide-xs{display:none!important;}}
 
@@ -386,9 +392,10 @@ body.dark .topbar-hamburger:hover{background:rgba(255,255,255,.13);}
 
 /* ===== MOBILE (<=768px) ===== */
 @media(max-width:768px){
-  /* Sidebar vira overlay deslizante */
-  .sidebar{transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:20;}
-  .sidebar.open{transform:translateX(0);}
+  /* Bottom tab bar ativo no mobile */
+  .mob-tabbar{display:flex;}
+  /* Sidebar oculto — nav pelo tab bar */
+  .sidebar{display:none!important;}
   /* Main ocupa tela toda */
   .main{margin-left:0!important;width:100vw!important;}
   /* Topbar */
@@ -397,7 +404,7 @@ body.dark .topbar-hamburger:hover{background:rgba(255,255,255,.13);}
   .topbar-meta{display:none!important;}
   .topbar-title{font-size:14px;}
   /* Page */
-  .page-content{padding:14px 12px;}
+  .page-content{padding:14px 12px;padding-bottom:calc(74px + env(safe-area-inset-bottom));}
   /* Stat grid: 2 colunas */
   .stat-grid{grid-template-columns:1fr 1fr;gap:10px;}
   .stat-val{font-size:22px;}
@@ -441,6 +448,12 @@ body.dark .topbar-hamburger:hover{background:rgba(255,255,255,.13);}
   .sb-logo{padding:16px 16px 12px;}
   /* Onboarding */
   .onboarding{padding:20px 16px;}
+  /* ── Dashboard rows collapse ── */
+  .dash-kpi-row{grid-template-columns:1fr 1fr!important;}
+  .dash-row2,.dash-row3,.dash-row4{grid-template-columns:1fr!important;}
+  /* ── Two-column layout collapse ── */
+  .two-col-layout{grid-template-columns:1fr!important;}
+  .mob-hide-panel{display:none!important;}
 }
 
 /* ===== SMALL MOBILE (<=480px) ===== */
@@ -618,12 +631,32 @@ function toggleSidebar(){
   render();
 }
 
+function buildMobTabbar(){
+  const isSpecsArea=S.page==='specs'||S.page==='spec-editor';
+  const tabs=[
+    {id:'dashboard',label:'Visão Geral',ico:'home'},
+    {id:'catalog',label:'Catálogo',ico:'box'},
+    {id:'arqs',label:'Arquitetos',ico:'people'},
+    {id:'clis',label:'Clientes',ico:'person'},
+    {id:'specs',label:'Specs',ico:'folder'},
+  ];
+  return `<div class="mob-tabbar">
+    ${tabs.map(t=>{
+      const on=(S.page===t.id||(t.id==='specs'&&isSpecsArea));
+      return `<button class="mob-tab ${on?'on':''}" onclick="S.page='${t.id}';S.editSpec=null;render()">
+        ${SVG(t.ico,20)}
+        <span>${t.label}</span>
+      </button>`;
+    }).join('')}
+  </div>`;
+}
 function buildApp(){
   return `${S.sidebarOpen?`<div class="sidebar-overlay" id="sidebarOverlay"></div>`:''}
   <div style="display:flex;min-height:100vh;">
     <div class="sidebar${S.sidebarOpen?' open':''}">${buildSidebar()}</div>
     <div class="main">${buildTopbar()}<div class="page-content">${buildPage()}</div></div>
   </div>
+  ${buildMobTabbar()}
   ${S.modal?buildModal():''}
   ${S.confirmData?buildConfirmModal():''}
   ${S.toast?`<div class="toast">${S.toast}</div>`:''}`;
@@ -896,11 +929,11 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
   </div>
 
   <!-- ══ ROW 1: KPIs ══ -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+  <div class="dash-kpi-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
 
     <!-- KPI 1: Valor Vendido -->
     <div class="card" style="padding:20px 22px;border-top:3px solid var(--green-text);">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Valor Vendido</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Valor Vendido</div>
       <div style="font-size:30px;font-weight:800;color:var(--green-text);line-height:1;margin-bottom:10px;">${fmtK(valorVendMes)}</div>
       <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;">
@@ -917,7 +950,7 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
 
     <!-- KPI 2: Valor Orçado -->
     <div class="card" style="padding:20px 22px;border-top:3px solid var(--accent);">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Valor Or\u00e7ado</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Valor Or\u00e7ado</div>
       <div style="font-size:30px;font-weight:800;color:var(--accent);line-height:1;margin-bottom:10px;">${fmtK(valorOrcMes)}</div>
       <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;">
@@ -934,7 +967,7 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
 
     <!-- KPI 3: Especificações -->
     <div class="card" style="padding:20px 22px;border-top:3px solid var(--text-secondary);cursor:pointer;" onclick="S.page='specs';render()">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Especifica\u00e7\u00f5es</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Especifica\u00e7\u00f5es</div>
       <div style="font-size:30px;font-weight:800;color:var(--text);line-height:1;margin-bottom:10px;">${nEspecMes}</div>
       <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;">
@@ -951,7 +984,7 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
 
     <!-- KPI 4: Taxa de Conversão -->
     <div class="card" style="padding:20px 22px;border-top:3px solid ${taxaMes>=50?'var(--green-text)':taxaMes>=25?'var(--orange-text)':'var(--red,#ff3b30)'};">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Taxa de Convers\u00e3o</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;">Taxa de Convers\u00e3o</div>
       <div style="font-size:30px;font-weight:800;color:${taxaMes>=50?'var(--green-text)':taxaMes>=25?'var(--orange-text)':'var(--red,#ff3b30)'};line-height:1;margin-bottom:10px;">${taxaMes}%</div>
       <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;">
@@ -969,14 +1002,14 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
   </div>
 
   <!-- ══ ROW 2: Pipeline | Alertas | Arquitetos ══ -->
-  <div style="display:grid;grid-template-columns:1fr 1.15fr 1.05fr;gap:12px;align-items:start;">
+  <div class="dash-row2" style="display:grid;grid-template-columns:1fr 1.15fr 1.05fr;gap:12px;align-items:stretch;">
 
     <!-- Pipeline -->
     <div class="card" style="padding:20px 22px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:16px;">Pipeline · ${totSessoes} total</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:16px;">Pipeline · ${totSessoes} total</div>
       <div style="display:flex;flex-direction:column;gap:10px;">
 
-        <div>
+        <div style="cursor:pointer;border-radius:8px;padding:4px;margin:-4px;transition:background .15s;" onclick="S.page='specs';S.fSessaoStatus='rascunho';S.fArqId='';S.fCliId='';render()" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
             <span style="font-size:12px;font-weight:600;color:var(--text);">Rascunho</span>
             <span style="font-size:12px;font-weight:700;color:var(--text);">${rascunhos}</span>
@@ -984,10 +1017,10 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
           <div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;">
             <div style="height:8px;border-radius:4px;background:var(--orange-text);width:${pipeW(rascunhos,totSessoes)}%;transition:width .5s;"></div>
           </div>
-          <div style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">${totSessoes?Math.round(rascunhos/totSessoes*100):0}% do total</div>
+          <div style="font-size:11px;color:var(--text-tertiary);margin-top:3px;">${totSessoes?Math.round(rascunhos/totSessoes*100):0}% do total</div>
         </div>
 
-        <div>
+        <div style="cursor:pointer;border-radius:8px;padding:4px;margin:-4px;transition:background .15s;" onclick="S.page='specs';S.fSessaoStatus='concluida';S.fArqId='';S.fCliId='';render()" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
             <span style="font-size:12px;font-weight:600;color:var(--accent);">Conclu\u00edda</span>
             <span style="font-size:12px;font-weight:700;color:var(--accent);">${concluidas}</span>
@@ -995,10 +1028,10 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
           <div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;">
             <div style="height:8px;border-radius:4px;background:var(--accent);width:${pipeW(concluidas,totSessoes)}%;transition:width .5s;"></div>
           </div>
-          <div style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">${totSessoes?Math.round(concluidas/totSessoes*100):0}% do total</div>
+          <div style="font-size:11px;color:var(--text-tertiary);margin-top:3px;">${totSessoes?Math.round(concluidas/totSessoes*100):0}% do total</div>
         </div>
 
-        <div>
+        <div style="cursor:pointer;border-radius:8px;padding:4px;margin:-4px;transition:background .15s;" onclick="S.page='specs';S.fVendaStatus='vendido';S.fSessaoStatus='';S.fArqId='';S.fCliId='';render()" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
             <span style="font-size:12px;font-weight:600;color:var(--green-text);">Vendida</span>
             <span style="font-size:12px;font-weight:700;color:var(--green-text);">${nVendidas}</span>
@@ -1006,7 +1039,7 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
           <div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;">
             <div style="height:8px;border-radius:4px;background:var(--green-text);width:${pipeW(nVendidas,totSessoes)}%;transition:width .5s;"></div>
           </div>
-          <div style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">${totSessoes?Math.round(nVendidas/totSessoes*100):0}% do total</div>
+          <div style="font-size:11px;color:var(--text-tertiary);margin-top:3px;">${totSessoes?Math.round(nVendidas/totSessoes*100):0}% do total</div>
         </div>
 
       </div>
@@ -1015,9 +1048,10 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
     <!-- Alertas: Cotação Pendente -->
     <div class="card" style="padding:0;">
       <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--orange-text);">&#9888; Cota\u00e7\u00e3o Pendente</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--orange-text);">&#9888; Cota\u00e7\u00e3o Pendente</div>
         <span class="pill pill-orange" style="font-size:10px;">${alertasComp.length}</span>
       </div>
+      <div style="max-height:240px;overflow-y:auto;">
       ${alertasComp.length===0
         ?`<div style="padding:20px 18px;font-size:12px;color:var(--text-tertiary);text-align:center;">Nenhuma cota\u00e7\u00e3o pendente \u2714</div>`
         :alertasComp.map(({s,cli,pendentes,total,dias,itensTotal})=>{
@@ -1043,13 +1077,15 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
           +'</div>';
         }).join('')
       }
+      </div>
     </div>
 
     <!-- Top Arquitetos -->
     <div class="card" style="padding:0;">
       <div style="padding:14px 18px;border-bottom:1px solid var(--border);">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Top Arquitetos</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-tertiary);">Top Arquitetos</div>
       </div>
+      <div style="max-height:230px;overflow-y:auto;">
       ${topArqs.length===0
         ?`<div style="padding:20px 18px;font-size:12px;color:var(--text-tertiary);text-align:center;">Nenhum arquiteto ainda.</div>`
         :`<div style="padding:8px 0;">
@@ -1062,7 +1098,7 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
           ${topArqs.map((x,i)=>{
             const maxN=topArqs[0].nSpecs;
             const barW=maxN>0?Math.round(x.nSpecs/maxN*100):0;
-            return '<div style="display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:0;padding:7px 18px;border-bottom:1px solid var(--border);">'
+            return '<div style="display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:0;padding:7px 18px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="S.page=\'arqs\';render()">'
             +'<span style="font-size:10px;font-weight:700;color:var(--text-tertiary);min-width:14px;">'+(i+1)+'</span>'
             +'<div style="padding-left:10px;min-width:0;">'
             +'<div style="font-size:11.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+x.nome+'</div>'
@@ -1077,17 +1113,18 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
           }).join('')}
         </div>`
       }
+      </div>
     </div>
 
   </div>
 
   <!-- ══ ROW 3: Evolução Anual | Últimas Specs ══ -->
-  <div style="display:grid;grid-template-columns:1.8fr 1fr;gap:12px;align-items:start;">
+  <div class="dash-row3" style="display:grid;grid-template-columns:1.8fr 1fr;gap:12px;align-items:stretch;">
 
     <!-- Evolução Anual: bar chart -->
     <div class="card" style="padding:20px 22px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Evolu\u00e7\u00e3o Anual ${curYear}</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);">Evolu\u00e7\u00e3o Anual ${curYear}</div>
         <div style="display:flex;gap:12px;align-items:center;">
           <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-tertiary);">
             <span style="width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:.7;display:inline-block;"></span>Or\u00e7ado
@@ -1125,7 +1162,7 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
     <!-- Últimas Especificações -->
     <div class="card" style="padding:0;">
       <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">\u00daltimas Especifica\u00e7\u00f5es</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);">\u00daltimas Especifica\u00e7\u00f5es</div>
         <span style="font-size:11px;color:var(--accent);cursor:pointer;" onclick="S.page='specs';render()">ver todas &rsaquo;</span>
       </div>
       ${recentSpecs.length===0
@@ -1148,11 +1185,11 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
   </div>
 
   <!-- ══ ROW 4: Materiais & Marcas ══ -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+  <div class="dash-row4" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
 
     <!-- Tipos mais especificados -->
     <div class="card" style="padding:20px 22px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Tipos de Material mais Especificados</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Tipos de Material mais Especificados</div>
       ${topTipos.length===0
         ?`<div style="font-size:12px;color:var(--text-tertiary);">Nenhum tipo cadastrado ainda.</div>`
         :topTipos.map(([tipo,n])=>{
@@ -1172,7 +1209,7 @@ return `<div style="width:100%;display:flex;flex-direction:column;gap:16px;">
 
     <!-- Marcas mais especificadas -->
     <div class="card" style="padding:20px 22px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Marcas mais Especificadas</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Marcas mais Especificadas</div>
       ${topMarcas.length===0
         ?`<div style="font-size:12px;color:var(--text-tertiary);">Nenhuma marca cadastrada ainda.</div>`
         :topMarcas.map(([marca,n])=>{
@@ -1206,7 +1243,7 @@ function buildCatalog(){
   if(S.catTipo)list=list.filter(p=>p.tipo===S.catTipo);
   if(S.catMarca)list=list.filter(p=>p.marca===S.catMarca);
   const hasFilters=q||S.catTipo||S.catMarca;
-  return`<div style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+  return`<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
 <div class="card" style="width:100%;">
     <div class="card-header">
       <div><div class="card-title">Catálogo de Produtos</div><div class="card-sub">${list.length} de ${S.prods.length} produto${S.prods.length!==1?'s':''}</div></div>
@@ -1246,10 +1283,10 @@ function buildCatalog(){
   </div>
 
 <!-- RIGHT PANEL -->
-<div style="display:flex;flex-direction:column;gap:12px;">
+<div class="mob-hide-panel" style="display:flex;flex-direction:column;gap:12px;">
 
   <div class="card" style="padding:18px 20px;">
-    <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:12px;color:var(--text-tertiary);">Produtos</span>
@@ -1276,7 +1313,7 @@ function buildCatalog(){
 
   <div class="card" style="padding:0;">
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Top Marcas</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);">Top Marcas</div>
     </div>
     ${(()=>{
       const m={};S.prods.forEach(p=>{if(p.marca)m[p.marca]=(m[p.marca]||0)+1;});
@@ -1299,7 +1336,7 @@ function buildCatalog(){
 
   <div class="card" style="padding:0;">
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Top Tipos</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);">Top Tipos</div>
     </div>
     ${(()=>{
       const m={};S.prods.forEach(p=>{if(p.tipo)m[p.tipo]=(m[p.tipo]||0)+1;});
@@ -1329,7 +1366,7 @@ function buildCatalog(){
 function buildArqs(){
   const q=(S.arqSearch||'').toLowerCase();
   const list=q?S.arqs.filter(a=>a.nome.toLowerCase().includes(q)||(a.escritorio||'').toLowerCase().includes(q)||(a.email||'').toLowerCase().includes(q)):S.arqs;
-  return`<div style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+  return`<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
 <div class="card" style="width:100%;">
     <div class="card-header"><div class="card-title">Arquitetos</div>
       <button class="btn btn-primary" id="btnNovoArq">${SVG('plus',13)} Novo Arquiteto</button>
@@ -1354,10 +1391,10 @@ function buildArqs(){
   </div>
 
 <!-- RIGHT PANEL -->
-<div style="display:flex;flex-direction:column;gap:12px;">
+<div class="mob-hide-panel" style="display:flex;flex-direction:column;gap:12px;">
 
   <div class="card" style="padding:18px 20px;">
-    <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:12px;color:var(--text-tertiary);">Total</span>
@@ -1380,7 +1417,7 @@ function buildArqs(){
 
   <div class="card" style="padding:0;">
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Mais Ativos</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);">Mais Ativos</div>
     </div>
     ${[...S.arqs].map(a=>{
       const nCli=S.clis.filter(c=>c.arquitetoId===a.id).length;
@@ -1419,7 +1456,7 @@ function buildClis(){
   if(q)list=list.filter(c=>c.nome.toLowerCase().includes(q)||(c.obra||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)||(c.tel||'').toLowerCase().includes(q));
   if(S.cliArqId)list=list.filter(c=>c.arquitetoId===S.cliArqId);
   const hasFilters=q||S.cliArqId;
-  return`<div style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+  return`<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
 <div class="card" style="width:100%;">
     <div class="card-header">
       <div><div class="card-title">Clientes</div><div class="card-sub">${list.length} de ${S.clis.length} cliente${S.clis.length!==1?'s':''}</div></div>
@@ -1455,10 +1492,10 @@ function buildClis(){
   </div>
 
 <!-- RIGHT PANEL -->
-<div style="display:flex;flex-direction:column;gap:12px;">
+<div class="mob-hide-panel" style="display:flex;flex-direction:column;gap:12px;">
 
   <div class="card" style="padding:18px 20px;">
-    <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:12px;color:var(--text-tertiary);">Total</span>
@@ -1481,7 +1518,7 @@ function buildClis(){
 
   <div class="card" style="padding:0;">
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);">Por Arquiteto</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);">Por Arquiteto</div>
     </div>
     ${S.arqs.map(a=>{
       const nCli=S.clis.filter(c=>c.arquitetoId===a.id).length;
@@ -1522,7 +1559,7 @@ function buildSpecsList(){
   const _q=S.fItemSearch.trim().toLowerCase();
   if(_q)list=list.filter(s=>sessaoItems(s.id).some(i=>(i.produto||'').toLowerCase().includes(_q)||(i.referencia||'').toLowerCase().includes(_q)||(i.codigo||'').toLowerCase().includes(_q)));
 
-  return`<div style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
+  return`<div class="two-col-layout" style="display:grid;grid-template-columns:1fr 280px;gap:14px;align-items:start;">
 <div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
       <div>
@@ -1607,10 +1644,10 @@ function buildSpecsList(){
   </div>
 
 <!-- RIGHT PANEL -->
-<div style="display:flex;flex-direction:column;gap:12px;">
+<div class="mob-hide-panel" style="display:flex;flex-direction:column;gap:12px;">
 
   <div class="card" style="padding:18px 20px;">
-    <div style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:14px;">Resumo</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:12px;color:var(--text-tertiary);">Total</span>
@@ -1640,7 +1677,7 @@ function buildSpecsList(){
     if(pendentes.length===0)return '';
     return '<div class="card" style="padding:0;border-left:3px solid var(--orange-text);">'
     +'<div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
-    +'<span style="font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--orange-text);">Cota\u00e7\u00e3o Pendente</span>'
+    +'<span style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--orange-text);">Cota\u00e7\u00e3o Pendente</span>'
     +'<span class="pill pill-orange" style="font-size:10px;">'+pendentes.length+'</span>'
     +'</div>'
     +pendentes.slice(0,5).map(s=>{
@@ -1664,10 +1701,6 @@ function buildSpecsList(){
     }).join('')
     +'</div>';
   })()}
-
-  <button class="btn btn-primary btn-sm" id="btnNovaSpecSide" style="width:100%;justify-content:center;padding:10px;" onclick="S.page=\'specs\';S.editSpec=null;render()">
-    ${SVG('plus',13)} Nova Especifica\u00e7\u00e3o
-  </button>
 
 </div>
 
@@ -1809,6 +1842,8 @@ function buildAddRow(){
     <td><input id="arRef" placeholder="Ref." value="${d.referencia||''}"/></td>
     <td><input id="arCod" placeholder="Código" value="${d.codigo||''}"/></td>
     <td><select id="arCotar"><option value="">Cotar</option>${COTAR.map(o=>`<option value="${o}" ${d.cotar===o?'selected':''}>${o}</option>`).join('')}</select></td>
+    <td></td>
+    <td></td>
     <td><select id="arSep"><option value="">Separação</option>${SEP.map(o=>`<option value="${o}" ${d.separado===o?'selected':''}>${o}</option>`).join('')}</select></td>
     <td><input id="arObs" placeholder="Obs." value="${d.obs||''}"/></td>
     <td style="text-align:center;"><button class="btn btn-primary btn-sm" id="btnSaveItem" style="border-radius:8px;padding:5px 10px;">${SVG('check',14)}</button></td>
