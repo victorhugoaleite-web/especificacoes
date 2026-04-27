@@ -191,6 +191,8 @@ body.dark .topbar-stat:hover{background:rgba(255,255,255,.07);}
 .btn-green:hover{filter:brightness(.92);}
 .btn-ghost{background:transparent;color:var(--accent);border:1px solid rgba(0,113,227,.25);}
 .btn-ghost:hover{background:var(--accent-light);}
+.btn-report{background:transparent;color:var(--text);border:0.5px solid var(--glass-border);backdrop-filter:blur(12px);}
+.btn-report:hover{background:var(--glass-tint-2);transform:translateY(-1px);}
 .btn-neutral{background:rgba(0,0,0,.06);color:var(--text);border:none;}
 body.dark .btn-neutral{background:rgba(255,255,255,.08);}
 .btn-neutral:hover{background:rgba(0,0,0,.1);}
@@ -208,7 +210,10 @@ body.dark .btn-neutral:hover{background:rgba(255,255,255,.13);}
 input,select,textarea{width:100%;padding:8px 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font);color:var(--text);background:var(--surface);outline:none;transition:border-color .15s,box-shadow .15s,background .25s;}
 input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,113,227,.12);}
 input::placeholder,textarea::placeholder{color:var(--text-tertiary);}
-select{cursor:pointer;}
+select{cursor:pointer;color-scheme:light;}
+body.dark select,body.dark input[type="date"],body.dark input[type="time"],body.dark input[type="datetime-local"]{color-scheme:dark;}
+select option{background:var(--surface);color:var(--text);}
+body.dark select option{background:#1c1c1e;color:#f5f5f7;}
 input.err,select.err{border-color:var(--red)!important;box-shadow:0 0 0 3px rgba(255,59,48,.1)!important;}
 .field-err{font-size:11px;color:var(--red-text);margin-top:3px;display:flex;align-items:center;gap:3px;}
 
@@ -2251,6 +2256,8 @@ let S={
   lastSave:DB.getVal('lastSave',null),
   sidebarOpen:false,
   fbUser:null,fbSyncStatus:'idle',fbInitialized:false,cloudBackups:[],
+  // report builder
+  reportData:null,
 };
 
 function save(){
@@ -2410,6 +2417,8 @@ const ico={
   ham:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
   logout:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
   cloud:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>`,
+  chart:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+  sort:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg>`,
 };
 const SVG=(k,s=16,cls='')=>`<span style="display:inline-flex;align-items:center;width:${s}px;height:${s}px;flex-shrink:0;" class="${cls}">${(ico[k]||'').replace('<svg ','<svg width="'+s+'" height="'+s+'" ')}</span>`;
 
@@ -3676,10 +3685,11 @@ function buildCatalog(){
         <div class="screen-title-xl">Cat\u00e1logo</div>
         <div class="screen-meta">${S.prods.length} produto${S.prods.length!==1?'s':''} &middot; ${nTipos} tipo${nTipos!==1?'s':''} &middot; ${nMarcas} marca${nMarcas!==1?'s':''}</div>
       </div>
-      <!-- + transparente no padrão glass -->
-      <button onclick="S.modal='prod';S.editItem=null;S._err={};render()" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);flex-shrink:0;backdrop-filter:blur(12px);">
-        ${icoSVG('plus',20)}
-      </button>
+      <!-- relatório + transparente no padrão glass -->
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button onclick="openReport('catalog')" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);backdrop-filter:blur(12px);">${SVG('chart',18)}</button>
+        <button onclick="S.modal='prod';S.editItem=null;S._err={};render()" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);backdrop-filter:blur(12px);">${icoSVG('plus',20)}</button>
+      </div>
     </div>
 
     <!-- search bar alinhada -->
@@ -3768,7 +3778,10 @@ function buildCatalog(){
   const deskCatalog=`<div class="desk-only">
     <div class="page-hdr" style="padding:24px 32px 16px;display:flex;align-items:center;justify-content:space-between;">
       <div><h2 style="margin:0;font-size:22px;font-weight:700;">Cat\u00e1logo</h2><div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">${S.prods.length} produto${S.prods.length!==1?'s':''}</div></div>
-      <button class="btn primary" onclick="S.modal='prod';S.editItem=null;S._err={};render()">${SVG('plus',16)} Novo produto</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-report" onclick="openReport('catalog')">${SVG('chart',15)} Relat\u00f3rio</button>
+        <button class="btn primary" onclick="S.modal='prod';S.editItem=null;S._err={};render()">${SVG('plus',16)} Novo produto</button>
+      </div>
     </div>
     <div style="padding:0 32px;display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
       <input type="text" class="search-box" style="flex:1;min-width:200px;" placeholder="Nome, marca, c\u00f3digo..." value="${S.catSearch||''}" oninput="S.catSearch=this.value;render()"/>
@@ -3866,9 +3879,10 @@ function buildArqs(){
         <div class="screen-title-xl">Arquitetos</div>
         <div class="screen-meta">${S.arqs.length} arquiteto${S.arqs.length!==1?'s':''} &middot; ${S.clis.length} cliente${S.clis.length!==1?'s':''} vinculados</div>
       </div>
-      <button onclick="S.modal='arq';S.editItem=null;S._err={};render()" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);flex-shrink:0;backdrop-filter:blur(12px);">
-        ${icoSVG('plus',20)}
-      </button>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button onclick="openReport('arqs')" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);backdrop-filter:blur(12px);">${SVG('chart',18)}</button>
+        <button onclick="S.modal='arq';S.editItem=null;S._err={};render()" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);backdrop-filter:blur(12px);">${icoSVG('plus',20)}</button>
+      </div>
     </div>
     <div style="margin:0 20px 12px;">
       <div style="height:42px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);border-radius:13px;display:flex;align-items:center;padding:0 14px;gap:10px;">
@@ -3904,7 +3918,10 @@ function buildArqs(){
   const deskArqs=`<div class="desk-only">
     <div style="padding:24px 32px 16px;display:flex;align-items:center;justify-content:space-between;">
       <div><h2 style="margin:0;font-size:22px;font-weight:700;">Arquitetos</h2></div>
-      <button class="btn primary" onclick="S.modal='arq';S.editItem=null;S._err={};render()">${SVG('plus',16)} Novo arquiteto</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-report" onclick="openReport('arqs')">${SVG('chart',15)} Relatório</button>
+        <button class="btn primary" onclick="S.modal='arq';S.editItem=null;S._err={};render()">${SVG('plus',16)} Novo arquiteto</button>
+      </div>
     </div>
     <div style="padding:0 32px 16px;"><input type="text" class="search-box" style="width:100%;box-sizing:border-box;" placeholder="Buscar arquiteto..." value="${S.arqSearch||''}" oninput="S.arqSearch=this.value;render()"/></div>
     <div style="padding:0 32px;">
@@ -3978,9 +3995,10 @@ function buildClis(){
         <div class="screen-title-xl">Clientes</div>
         <div class="screen-meta">${S.clis.length} cliente${S.clis.length!==1?'s':''} &middot; ${nObras} obra${nObras!==1?'s':''} ativa${nObras!==1?'s':''}</div>
       </div>
-      <button onclick="S.modal='cli';S.editItem=null;S._err={};render()" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);flex-shrink:0;backdrop-filter:blur(12px);">
-        ${icoSVG('plus',20)}
-      </button>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button onclick="openReport('clis')" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);backdrop-filter:blur(12px);">${SVG('chart',18)}</button>
+        <button onclick="S.modal='cli';S.editItem=null;S._err={};render()" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);backdrop-filter:blur(12px);">${icoSVG('plus',20)}</button>
+      </div>
     </div>
 
     <!-- search bar -->
@@ -4021,7 +4039,10 @@ function buildClis(){
   const deskClis=`<div class="desk-only">
     <div style="padding:24px 32px 16px;display:flex;align-items:center;justify-content:space-between;">
       <div><h2 style="margin:0;font-size:22px;font-weight:700;">Clientes</h2><div style="font-size:13px;color:var(--text-secondary);">${S.clis.length} cliente${S.clis.length!==1?'s':''}</div></div>
-      <button class="btn primary" onclick="S.modal='cli';S.editItem=null;S._err={};render()">${SVG('plus',16)} Novo cliente</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-report" onclick="openReport('clis')">${SVG('chart',15)} Relatório</button>
+        <button class="btn primary" onclick="S.modal='cli';S.editItem=null;S._err={};render()">${SVG('plus',16)} Novo cliente</button>
+      </div>
     </div>
     <div class="client-filter-row" style="padding:0 32px 16px;display:flex;gap:12px;">
       <div class="client-search-field"><input type="text" class="search-box" placeholder="Buscar por cliente, obra, e-mail ou telefone..." value="${S.cliSearch||''}" oninput="S.cliSearch=this.value;render()"/></div>
@@ -4188,9 +4209,10 @@ function buildSpecsList(){
         <div class="screen-title-xl">Especifica\u00e7\u00f5es</div>
         <div class="screen-meta">${nTot} total &middot; ${nAberto} em aberto &middot; ${nVend} vendida${nVend!==1?'s':''} &middot; ${nCanc} cancelada${nCanc!==1?'s':''} &middot; ${nRasc} rascunho${nRasc!==1?'s':''}</div>
       </div>
-      <button onclick="S.modal='nova-spec';S.editItem=null;S._err={};render()" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);flex-shrink:0;backdrop-filter:blur(12px);">
-        ${icoSVG('plus',20)}
-      </button>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button onclick="openReport('specs')" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);backdrop-filter:blur(12px);">${SVG('chart',18)}</button>
+        <button onclick="S.modal='nova-spec';S.editItem=null;S._err={};render()" style="width:44px;height:44px;border-radius:100px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);backdrop-filter:blur(12px);">${icoSVG('plus',20)}</button>
+      </div>
     </div>
     <div style="margin:0 20px 10px;">
       <div style="height:42px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);border-radius:13px;display:flex;align-items:center;padding:0 14px;gap:10px;">
@@ -4250,7 +4272,10 @@ function buildSpecsList(){
         <h2 style="margin:0;font-size:22px;font-weight:700;">Especifica\u00e7\u00f5es</h2>
         <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${nTot} total &middot; ${nAberto} em aberto &middot; ${nVend} vendida${nVend!==1?'s':''} &middot; ${nCanc} cancelada${nCanc!==1?'s':''} &middot; ${nRasc} rascunho${nRasc!==1?'s':''}</div>
       </div>
-      <button class="btn primary" onclick="S.modal='nova-spec';S.editItem=null;S._err={};render()">${SVG('plus',16)} Nova especifica\u00e7\u00e3o</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-report" onclick="openReport('specs')">${SVG('chart',15)} Relat\u00f3rio</button>
+        <button class="btn primary" onclick="S.modal='nova-spec';S.editItem=null;S._err={};render()">${SVG('plus',16)} Nova especifica\u00e7\u00e3o</button>
+      </div>
     </div>
     <div class="spec-desk-toolbar" style="padding:0 32px;display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
       <div class="spec-desktop-search">
@@ -4706,6 +4731,7 @@ function buildModal(){
   if(S.modal==='arq')return buildModalArq();
   if(S.modal==='cli')return buildModalCli();
   if(S.modal==='pdf-options')return buildModalPdfOptions();
+  if(S.modal==='report')return buildModalReport();
   return'';
 }
 function ff(label,html,full=false,err=''){return`<div class="form-field${full?' full':''}"><label>${label}</label>${html}${err?`<div class="field-err">${SVG('warn',11)} ${err}</div>`:''}</div>`;}
@@ -5074,6 +5100,515 @@ function exportCSVForSessao(sessaoId){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download=`${(s.projeto||'especificacao').replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
   toast('CSV exportado');
+}
+
+// ===== RELATÓRIOS (PDF) =====
+
+const REPORT_CFG = {
+  specs:{
+    title:'Especificações',
+    sortOptions:[
+      ['data','Data de criação'],
+      ['projeto','Projeto (A-Z)'],
+      ['cliente','Cliente (A-Z)'],
+      ['arquiteto','Arquiteto (A-Z)'],
+      ['valor','Valor de venda'],
+      ['status','Status'],
+      ['nItens','Quantidade de itens'],
+    ],
+  },
+  clis:{
+    title:'Clientes',
+    sortOptions:[
+      ['nome','Nome (A-Z)'],
+      ['nSpecs','Quantidade de especificações'],
+      ['valorTotal','Valor total comprado'],
+      ['ultima','Última atividade'],
+      ['obra','Obra (A-Z)'],
+    ],
+  },
+  arqs:{
+    title:'Arquitetos',
+    sortOptions:[
+      ['nome','Nome (A-Z)'],
+      ['nClientes','Quantidade de clientes'],
+      ['nSpecs','Quantidade de especificações'],
+      ['vendas','Total vendido'],
+      ['conversao','Taxa de conversão'],
+    ],
+  },
+  catalog:{
+    title:'Catálogo',
+    sortOptions:[
+      ['nome','Nome (A-Z)'],
+      ['marca','Marca (A-Z)'],
+      ['tipo','Tipo (A-Z)'],
+      ['valorVendas','Valor de vendas'],
+      ['nSpecs','Quantidade de specs'],
+      ['tempoSemEspec','Tempo sem ser especificado'],
+    ],
+  },
+};
+
+function openReport(scope){
+  S.reportData = {
+    scope:scope,
+    sortBy: REPORT_CFG[scope].sortOptions[0][0],
+    sortDir:'desc',
+    dateStart:'',
+    dateEnd:'',
+    filter:{},
+  };
+  S.modal='report';
+  render();
+}
+
+const reportInputCSS = 'width:100%;height:38px;padding:0 12px;background:var(--glass-tint-2);border:0.5px solid var(--glass-border);border-radius:10px;color:var(--text);font-family:var(--font);font-size:13px;box-sizing:border-box;';
+function reportField(lbl,html){return `<div><label style="display:block;font-size:11px;color:var(--text-tertiary);margin-bottom:5px;font-weight:500;">${lbl}</label>${html}</div>`;}
+
+function buildModalReport(){
+  const d = S.reportData; if(!d) return '';
+  const cfg = REPORT_CFG[d.scope];
+  if(!cfg) return '';
+
+  let specificFilters = '';
+  if(d.scope==='specs'){
+    specificFilters=`
+      ${reportField('Cliente',`<select id="rpFltCliente" style="${reportInputCSS}"><option value="">Todos</option>${S.clis.map(c=>`<option value="${c.id}" ${d.filter.clienteId===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}</select>`)}
+      ${reportField('Arquiteto',`<select id="rpFltArq" style="${reportInputCSS}"><option value="">Todos</option>${S.arqs.map(a=>`<option value="${a.id}" ${d.filter.arquitetoId===a.id?'selected':''}>${esc(a.nome)}</option>`).join('')}</select>`)}
+      ${reportField('Status',`<select id="rpFltStatus" style="${reportInputCSS}"><option value="">Todos</option>${[['rascunho','Rascunho'],['concluida','Concluída'],['vendido','Vendida'],['cancelado','Cancelada']].map(([v,l])=>`<option value="${v}" ${d.filter.status===v?'selected':''}>${l}</option>`).join('')}</select>`)}
+    `;
+  } else if(d.scope==='clis'){
+    specificFilters=`
+      ${reportField('Arquiteto',`<select id="rpFltArq" style="${reportInputCSS}"><option value="">Todos</option>${S.arqs.map(a=>`<option value="${a.id}" ${d.filter.arquitetoId===a.id?'selected':''}>${esc(a.nome)}</option>`).join('')}</select>`)}
+      ${reportField('Mínimo de specs',`<input id="rpFltMinSpecs" type="number" min="0" value="${d.filter.minSpecs||''}" placeholder="0" style="${reportInputCSS}"/>`)}
+    `;
+  } else if(d.scope==='arqs'){
+    specificFilters=`
+      ${reportField('Mínimo de clientes',`<input id="rpFltMinClis" type="number" min="0" value="${d.filter.minClis||''}" placeholder="0" style="${reportInputCSS}"/>`)}
+      ${reportField('Mínimo de specs',`<input id="rpFltMinSpecs" type="number" min="0" value="${d.filter.minSpecs||''}" placeholder="0" style="${reportInputCSS}"/>`)}
+    `;
+  } else if(d.scope==='catalog'){
+    const tipos=[...new Set(S.prods.map(p=>p.tipo).filter(Boolean))].sort();
+    const marcas=[...new Set(S.prods.map(p=>p.marca).filter(Boolean))].sort();
+    specificFilters=`
+      ${reportField('Tipo',`<select id="rpFltTipo" style="${reportInputCSS}"><option value="">Todos</option>${tipos.map(t=>`<option value="${esc(t)}" ${d.filter.tipo===t?'selected':''}>${esc(t)}</option>`).join('')}</select>`)}
+      ${reportField('Marca',`<select id="rpFltMarca" style="${reportInputCSS}"><option value="">Todas</option>${marcas.map(m=>`<option value="${esc(m)}" ${d.filter.marca===m?'selected':''}>${esc(m)}</option>`).join('')}</select>`)}
+      ${reportField('Tempo sem ser especificado (dias mín.)',`<input id="rpFltDiasSem" type="number" min="0" value="${d.filter.diasSem||''}" placeholder="ex: 60" style="${reportInputCSS}"/>`)}
+    `;
+  }
+
+  const periodLabel = d.scope==='specs' ? 'Data de criação da spec'
+                    : d.scope==='clis' ? 'Última atividade do cliente'
+                    : d.scope==='arqs' ? 'Última atividade do arquiteto'
+                    : 'Última especificação do produto';
+
+  return `<div class="modal-bg" id="modalBg"><div class="modal" style="max-width:560px;">
+    <div class="modal-header"><div class="modal-title">${SVG('chart',18)} Relatório — ${cfg.title}</div><button class="modal-close" id="btnClose">${SVG('x',14)}</button></div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        ${reportField('Ordenar por',`<select id="rpSortBy" style="${reportInputCSS}">${cfg.sortOptions.map(([v,l])=>`<option value="${v}" ${d.sortBy===v?'selected':''}>${l}</option>`).join('')}</select>`)}
+        ${reportField('Direção',`<select id="rpSortDir" style="${reportInputCSS}"><option value="desc" ${d.sortDir==='desc'?'selected':''}>Decrescente</option><option value="asc" ${d.sortDir==='asc'?'selected':''}>Crescente</option></select>`)}
+      </div>
+      <div style="font-size:11px;color:var(--text-tertiary);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px;">Período <span style="font-weight:400;text-transform:none;color:var(--text-tertiary);"> · ${periodLabel}</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        ${reportField('De',`<input id="rpDateStart" type="date" value="${d.dateStart||''}" style="${reportInputCSS}"/>`)}
+        ${reportField('Até',`<input id="rpDateEnd" type="date" value="${d.dateEnd||''}" style="${reportInputCSS}"/>`)}
+      </div>
+      ${specificFilters?`<div style="font-size:11px;color:var(--text-tertiary);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px;">Filtros</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">${specificFilters}</div>`:''}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-neutral" id="btnClose2">Cancelar</button>
+      <button class="btn btn-primary" id="btnGenReport">${SVG('pdf',13)} Gerar PDF</button>
+    </div>
+  </div></div>`;
+}
+
+function collectReportConfig(){
+  const d=S.reportData; if(!d)return null;
+  d.sortBy=gv('rpSortBy')||d.sortBy;
+  d.sortDir=gv('rpSortDir')||d.sortDir;
+  d.dateStart=gv('rpDateStart')||'';
+  d.dateEnd=gv('rpDateEnd')||'';
+  d.filter={};
+  if(d.scope==='specs'){
+    if(gv('rpFltCliente'))d.filter.clienteId=gv('rpFltCliente');
+    if(gv('rpFltArq'))d.filter.arquitetoId=gv('rpFltArq');
+    if(gv('rpFltStatus'))d.filter.status=gv('rpFltStatus');
+  } else if(d.scope==='clis'){
+    if(gv('rpFltArq'))d.filter.arquitetoId=gv('rpFltArq');
+    if(gv('rpFltMinSpecs'))d.filter.minSpecs=parseInt(gv('rpFltMinSpecs'))||0;
+  } else if(d.scope==='arqs'){
+    if(gv('rpFltMinClis'))d.filter.minClis=parseInt(gv('rpFltMinClis'))||0;
+    if(gv('rpFltMinSpecs'))d.filter.minSpecs=parseInt(gv('rpFltMinSpecs'))||0;
+  } else if(d.scope==='catalog'){
+    if(gv('rpFltTipo'))d.filter.tipo=gv('rpFltTipo');
+    if(gv('rpFltMarca'))d.filter.marca=gv('rpFltMarca');
+    if(gv('rpFltDiasSem'))d.filter.diasSem=parseInt(gv('rpFltDiasSem'))||0;
+  }
+  return d;
+}
+
+function moneyParseR(v){if(v==null||v==='')return 0;if(typeof v==='number')return v;const n=parseFloat(String(v).replace(/[R$\s.]/g,'').replace(',','.'));return isNaN(n)?0:n;}
+function moneyFmtR(n){return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function dateInRange(iso,start,end){
+  if(!iso)return !start && !end;
+  const t=new Date(iso).getTime();
+  if(start && t<new Date(start+'T00:00:00').getTime())return false;
+  if(end && t>new Date(end+'T23:59:59').getTime())return false;
+  return true;
+}
+
+function buildReportRows(){
+  const d=collectReportConfig(); if(!d)return null;
+  const dir = d.sortDir==='asc'?1:-1;
+  const collator = new Intl.Collator('pt-BR',{sensitivity:'base'});
+  let rows=[]; let columns=[];
+
+  if(d.scope==='specs'){
+    columns=[
+      {k:'data',l:'Data',w:'9%'},
+      {k:'projeto',l:'Projeto',w:'22%'},
+      {k:'cliente',l:'Cliente',w:'17%'},
+      {k:'arquiteto',l:'Arquiteto',w:'15%'},
+      {k:'nItens',l:'Itens',w:'7%',align:'center'},
+      {k:'valor',l:'Valor',w:'12%',align:'right'},
+      {k:'status',l:'Status',w:'18%',align:'center'},
+    ];
+    rows = S.sessoes.map(s=>{
+      const cli=S.clis.find(c=>c.id===s.clienteId);
+      const arq=cli?S.arqs.find(a=>a.id===cli.arquitetoId):null;
+      const its=sessaoItems(s.id);
+      const valor=its.reduce((acc,i)=>acc+moneyParseR(i.preco)*Math.max(1,parseFloat(String(i.quantidade||'1').replace(',','.'))||1),0);
+      return {
+        _data:s.criadoEm||'',
+        data:fmtDate(s.criadoEm),
+        projeto:s.projeto||'—',
+        cliente:cli?cli.nome:'—',
+        arquiteto:arq?arq.nome:'—',
+        nItens:its.length,
+        _valor:valor,
+        valor:moneyFmtR(valor),
+        status:s.vendaStatus==='vendido'?'Vendida':s.vendaStatus==='cancelado'?'Cancelada':s.status==='concluida'?'Concluída':'Rascunho',
+        _cliId:s.clienteId,_arqId:arq?arq.id:'',
+      };
+    });
+    if(d.dateStart||d.dateEnd) rows = rows.filter(r=>dateInRange(r._data,d.dateStart,d.dateEnd));
+    if(d.filter.clienteId) rows = rows.filter(r=>r._cliId===d.filter.clienteId);
+    if(d.filter.arquitetoId) rows = rows.filter(r=>r._arqId===d.filter.arquitetoId);
+    if(d.filter.status){
+      const fs=d.filter.status;
+      rows = rows.filter(r=>{
+        if(fs==='vendido')return r.status==='Vendida';
+        if(fs==='cancelado')return r.status==='Cancelada';
+        if(fs==='concluida')return r.status==='Concluída';
+        if(fs==='rascunho')return r.status==='Rascunho';
+        return true;
+      });
+    }
+    rows.sort((a,b)=>{
+      const k=d.sortBy;
+      if(k==='data') return dir*((new Date(a._data).getTime()||0)-(new Date(b._data).getTime()||0));
+      if(k==='valor') return dir*((a._valor||0)-(b._valor||0));
+      if(k==='nItens') return dir*((a.nItens||0)-(b.nItens||0));
+      return dir*collator.compare(String(a[k]||''),String(b[k]||''));
+    });
+  }
+
+  else if(d.scope==='clis'){
+    columns=[
+      {k:'nome',l:'Cliente',w:'22%'},
+      {k:'obra',l:'Obra',w:'18%'},
+      {k:'arquiteto',l:'Arquiteto',w:'17%'},
+      {k:'nSpecs',l:'Specs',w:'8%',align:'center'},
+      {k:'valorTotal',l:'Valor comprado',w:'15%',align:'right'},
+      {k:'ultima',l:'Última atividade',w:'12%',align:'center'},
+      {k:'contato',l:'Contato',w:'8%'},
+    ];
+    rows = S.clis.map(c=>{
+      const arq=S.arqs.find(a=>a.id===c.arquitetoId);
+      const sess=S.sessoes.filter(s=>s.clienteId===c.id);
+      const valorTotal=sess.filter(s=>s.vendaStatus==='vendido').reduce((acc,s)=>{
+        const its=sessaoItems(s.id);
+        return acc + its.reduce((a,i)=>a+moneyParseR(i.preco)*Math.max(1,parseFloat(String(i.quantidade||'1').replace(',','.'))||1),0);
+      },0);
+      const ultimaTs=sess.reduce((mx,s)=>{const t=new Date(s.criadoEm||0).getTime();return t>mx?t:mx;},0);
+      return {
+        nome:c.nome||'—',
+        obra:c.obra||'—',
+        arquiteto:arq?arq.nome:'—',
+        nSpecs:sess.length,
+        _valorTotal:valorTotal,
+        valorTotal:moneyFmtR(valorTotal),
+        _ultima:ultimaTs,
+        ultima:ultimaTs?fmtDate(new Date(ultimaTs).toISOString()):'—',
+        contato:c.telefone||c.email||'—',
+        _arqId:arq?arq.id:'',
+      };
+    });
+    if(d.dateStart||d.dateEnd) rows = rows.filter(r=>r._ultima && dateInRange(new Date(r._ultima).toISOString(),d.dateStart,d.dateEnd));
+    if(d.filter.arquitetoId) rows = rows.filter(r=>r._arqId===d.filter.arquitetoId);
+    if(d.filter.minSpecs) rows = rows.filter(r=>r.nSpecs>=d.filter.minSpecs);
+    rows.sort((a,b)=>{
+      const k=d.sortBy;
+      if(k==='nSpecs') return dir*((a.nSpecs||0)-(b.nSpecs||0));
+      if(k==='valorTotal') return dir*((a._valorTotal||0)-(b._valorTotal||0));
+      if(k==='ultima') return dir*((a._ultima||0)-(b._ultima||0));
+      return dir*collator.compare(String(a[k]||''),String(b[k]||''));
+    });
+  }
+
+  else if(d.scope==='arqs'){
+    columns=[
+      {k:'nome',l:'Arquiteto',w:'22%'},
+      {k:'escritorio',l:'Escritório',w:'20%'},
+      {k:'nClientes',l:'Clientes',w:'10%',align:'center'},
+      {k:'nSpecs',l:'Specs',w:'9%',align:'center'},
+      {k:'vendas',l:'Total vendido',w:'15%',align:'right'},
+      {k:'conversao',l:'Conversão',w:'12%',align:'center'},
+      {k:'contato',l:'Contato',w:'12%'},
+    ];
+    rows = S.arqs.map(a=>{
+      const clis=S.clis.filter(c=>c.arquitetoId===a.id);
+      const sess=S.sessoes.filter(s=>clis.some(c=>c.id===s.clienteId));
+      const vendidas=sess.filter(s=>s.vendaStatus==='vendido');
+      const vendas=vendidas.reduce((acc,s)=>{
+        const its=sessaoItems(s.id);
+        return acc + its.reduce((aa,i)=>aa+moneyParseR(i.preco)*Math.max(1,parseFloat(String(i.quantidade||'1').replace(',','.'))||1),0);
+      },0);
+      const conv=sess.length?Math.round(vendidas.length/sess.length*100):0;
+      const ultimaTs=sess.reduce((mx,s)=>{const t=new Date(s.criadoEm||0).getTime();return t>mx?t:mx;},0);
+      return {
+        nome:a.nome||'—',
+        escritorio:a.escritorio||'—',
+        nClientes:clis.length,
+        nSpecs:sess.length,
+        _vendas:vendas,
+        vendas:moneyFmtR(vendas),
+        _conv:conv,
+        conversao:conv+'%',
+        contato:a.telefone||a.email||'—',
+        _ultima:ultimaTs,
+      };
+    });
+    if(d.dateStart||d.dateEnd) rows = rows.filter(r=>r._ultima && dateInRange(new Date(r._ultima).toISOString(),d.dateStart,d.dateEnd));
+    if(d.filter.minClis) rows = rows.filter(r=>r.nClientes>=d.filter.minClis);
+    if(d.filter.minSpecs) rows = rows.filter(r=>r.nSpecs>=d.filter.minSpecs);
+    rows.sort((a,b)=>{
+      const k=d.sortBy;
+      if(k==='nClientes') return dir*((a.nClientes||0)-(b.nClientes||0));
+      if(k==='nSpecs') return dir*((a.nSpecs||0)-(b.nSpecs||0));
+      if(k==='vendas') return dir*((a._vendas||0)-(b._vendas||0));
+      if(k==='conversao') return dir*((a._conv||0)-(b._conv||0));
+      return dir*collator.compare(String(a[k]||''),String(b[k]||''));
+    });
+  }
+
+  else if(d.scope==='catalog'){
+    columns=[
+      {k:'nome',l:'Produto',w:'24%'},
+      {k:'marca',l:'Marca',w:'14%'},
+      {k:'tipo',l:'Tipo',w:'12%'},
+      {k:'codigo',l:'Código',w:'10%'},
+      {k:'nSpecs',l:'Specs',w:'7%',align:'center'},
+      {k:'valorVendas',l:'Valor vendido',w:'14%',align:'right'},
+      {k:'tempoSemEspec',l:'Sem spec há',w:'12%',align:'center'},
+      {k:'preco',l:'Preço atual',w:'13%',align:'right'},
+    ];
+    const productKey=v=>String(v||'').trim().toLowerCase();
+    const now=Date.now();
+    rows = S.prods.map(p=>{
+      const matches=S.specs.filter(sp=>{
+        return (sp.produtoId&&String(sp.produtoId)===String(p.id))||
+               (sp.produto&&productKey(sp.produto)===productKey(p.nome))||
+               (sp.referencia&&p.referencia&&productKey(sp.referencia)===productKey(p.referencia))||
+               (sp.codigo&&p.codigo&&productKey(sp.codigo)===productKey(p.codigo));
+      });
+      let valorVendas=0; let ultimaTs=0;
+      matches.forEach(sp=>{
+        const sess=S.sessoes.find(s=>s.id===sp.sessaoId);
+        if(!sess)return;
+        const t=new Date(sess.criadoEm||0).getTime();
+        if(t>ultimaTs)ultimaTs=t;
+        if(sess.vendaStatus==='vendido'){
+          const qty=Math.max(1,parseFloat(String(sp.quantidade||'1').replace(',','.'))||1);
+          valorVendas+=moneyParseR(sp.preco)*qty;
+        }
+      });
+      const dias = ultimaTs?Math.floor((now-ultimaTs)/86400000):null;
+      return {
+        nome:p.nome||'—',
+        marca:p.marca||'—',
+        tipo:p.tipo||'—',
+        codigo:p.codigo||p.referencia||'—',
+        nSpecs:matches.length,
+        _valorVendas:valorVendas,
+        valorVendas:moneyFmtR(valorVendas),
+        _dias:dias,
+        tempoSemEspec: dias==null?'Nunca':(dias===0?'Hoje':dias+'d'),
+        preco:moneyFmtR(moneyParseR(p.preco)),
+        _ultima:ultimaTs,
+      };
+    });
+    if(d.dateStart||d.dateEnd) rows = rows.filter(r=>r._ultima && dateInRange(new Date(r._ultima).toISOString(),d.dateStart,d.dateEnd));
+    if(d.filter.tipo) rows = rows.filter(r=>r.tipo===d.filter.tipo);
+    if(d.filter.marca) rows = rows.filter(r=>r.marca===d.filter.marca);
+    if(d.filter.diasSem) rows = rows.filter(r=>r._dias!=null && r._dias>=d.filter.diasSem);
+    rows.sort((a,b)=>{
+      const k=d.sortBy;
+      if(k==='nSpecs') return dir*((a.nSpecs||0)-(b.nSpecs||0));
+      if(k==='valorVendas') return dir*((a._valorVendas||0)-(b._valorVendas||0));
+      if(k==='tempoSemEspec') return dir*((a._dias||0)-(b._dias||0));
+      return dir*collator.compare(String(a[k]||''),String(b[k]||''));
+    });
+  }
+
+  return {rows,columns,scope:d.scope,sortBy:d.sortBy,sortDir:d.sortDir,dateStart:d.dateStart,dateEnd:d.dateEnd,filter:d.filter};
+}
+
+function getRealizeLogoSrc(){
+  const img=document.querySelector('.sb-logo-img');
+  return img && img.src ? img.src : '';
+}
+
+function gerarRelatorio(){
+  const data = buildReportRows(); if(!data){toast('Erro ao gerar');return;}
+  const cfg = REPORT_CFG[data.scope];
+  const sortLbl = (cfg.sortOptions.find(o=>o[0]===data.sortBy)||[])[1] || data.sortBy;
+  const dirLbl = data.sortDir==='asc'?'Crescente':'Decrescente';
+  const periodLbl = (data.dateStart||data.dateEnd)
+    ? `${data.dateStart?fmtDate(data.dateStart+'T00:00:00'):'início'} → ${data.dateEnd?fmtDate(data.dateEnd+'T00:00:00'):'hoje'}`
+    : 'Todos os períodos';
+
+  const filterChips=[];
+  if(data.filter.clienteId){const c=S.clis.find(x=>x.id===data.filter.clienteId);if(c)filterChips.push('Cliente: '+c.nome);}
+  if(data.filter.arquitetoId){const a=S.arqs.find(x=>x.id===data.filter.arquitetoId);if(a)filterChips.push('Arquiteto: '+a.nome);}
+  if(data.filter.status)filterChips.push('Status: '+data.filter.status);
+  if(data.filter.tipo)filterChips.push('Tipo: '+data.filter.tipo);
+  if(data.filter.marca)filterChips.push('Marca: '+data.filter.marca);
+  if(data.filter.minSpecs)filterChips.push('Min. specs: '+data.filter.minSpecs);
+  if(data.filter.minClis)filterChips.push('Min. clientes: '+data.filter.minClis);
+  if(data.filter.diasSem)filterChips.push('Sem spec há: ≥'+data.filter.diasSem+'d');
+
+  const logo = getRealizeLogoSrc();
+  const today = new Date();
+  const tStr = today.toLocaleDateString('pt-BR')+' '+today.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  const rowsHtml = data.rows.length === 0
+    ? `<tr><td colspan="${data.columns.length}" style="text-align:center;padding:40px;color:#86868b;">Nenhum registro encontrado com os filtros selecionados.</td></tr>`
+    : data.rows.map((r,i)=>`<tr class="${i%2?'odd':'even'}">${data.columns.map(c=>{
+        const v = r[c.k];
+        const al = c.align?` style="text-align:${c.align};"`:'';
+        return `<td${al}>${escHtml(v==null||v===''?'—':String(v))}</td>`;
+      }).join('')}</tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Relatório — ${escHtml(cfg.title)} — Realize</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:11px;}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;color:#1d1d1f;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+@page{size:A4 landscape;margin:14mm 12mm;}
+@media print{.no-print{display:none!important;}}
+
+.print-bar{background:linear-gradient(135deg,#0071e3,#5e5ce6);color:#fff;padding:11px 22px;display:flex;align-items:center;justify-content:space-between;font-family:'Inter',sans-serif;position:fixed;top:0;left:0;right:0;z-index:999;box-shadow:0 2px 12px rgba(0,0,0,.15);}
+.print-bar strong{font-size:13px;font-weight:600;}
+.print-bar button{background:#fff;color:#0071e3;border:none;padding:7px 18px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+.print-bar button:hover{background:#e8f0fc;}
+.print-bar .btn-back{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;}
+.doc-wrap{padding:54px 14px 14px;}
+@media print{.doc-wrap{padding:0;}}
+
+.doc-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:2.5px solid #1d1d1f;margin-bottom:18px;}
+.doc-logo{display:flex;align-items:center;gap:11px;}
+.doc-logo-mark{width:42px;height:42px;background:#1d1d1f;border-radius:9px;display:flex;align-items:center;justify-content:center;}
+.doc-logo-mark img{width:26px;height:26px;object-fit:contain;filter:brightness(0) invert(1);}
+.doc-app-name{font-size:16px;font-weight:800;letter-spacing:-.4px;color:#1d1d1f;}
+.doc-app-sub{font-size:10px;color:#6e6e73;margin-top:1px;font-weight:500;}
+.doc-title{text-align:right;}
+.doc-rep-kicker{font-size:9px;font-weight:700;color:#6e6e73;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px;}
+.doc-rep-title{font-size:20px;font-weight:800;letter-spacing:-.5px;color:#1d1d1f;}
+
+.meta-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:11px 14px;background:linear-gradient(135deg,#f5f5f7,#fafafa);border-radius:10px;margin-bottom:14px;border:1px solid #e8e8ed;}
+.meta-item label{font-size:8px;font-weight:700;color:#6e6e73;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:3px;}
+.meta-item span{font-size:11px;font-weight:600;color:#1d1d1f;}
+.meta-item .v-strong{font-size:14px;font-weight:800;color:#0071e3;}
+
+.filter-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.filter-chips .chip{background:#e8f0fc;color:#0071e3;padding:3px 10px;border-radius:14px;font-size:10px;font-weight:600;}
+
+table{width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed;}
+thead tr{background:#1d1d1f;}
+thead th{padding:9px 8px;text-align:left;font-size:8.5px;font-weight:700;color:#fff;letter-spacing:.06em;text-transform:uppercase;}
+tbody tr.even{background:#fff;}
+tbody tr.odd{background:#fafafa;}
+tbody tr:hover{background:#f0f7ff;}
+tbody tr:last-child td{border-bottom:2.5px solid #1d1d1f;}
+tbody td{padding:7px 8px;border-bottom:1px solid #e8e8ed;vertical-align:middle;color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+tbody td:first-child{font-weight:600;}
+
+.doc-footer{margin-top:18px;padding-top:11px;border-top:1px solid #e5e5e7;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#86868b;}
+.doc-footer .gen{font-weight:600;}
+.doc-footer-brand{display:flex;align-items:center;gap:6px;font-weight:600;color:#1d1d1f;}
+</style>
+</head>
+<body>
+<div class="print-bar no-print">
+  <button class="btn-back" onclick="try{window.close();}catch(e){history.back();}">&#8592; Fechar</button>
+  <strong>Relatório — ${escHtml(cfg.title)} · Especifica Realize!</strong>
+  <button onclick="window.print()">Imprimir / Salvar PDF</button>
+</div>
+<div class="doc-wrap">
+
+  <div class="doc-header">
+    <div class="doc-logo">
+      <div class="doc-logo-mark">${logo?`<img src="${logo}" alt="Realize"/>`:''}</div>
+      <div>
+        <div class="doc-app-name">Especifica Realize!</div>
+        <div class="doc-app-sub">Sistema de gestão de especificações</div>
+      </div>
+    </div>
+    <div class="doc-title">
+      <div class="doc-rep-kicker">Relatório</div>
+      <div class="doc-rep-title">${escHtml(cfg.title)}</div>
+    </div>
+  </div>
+
+  <div class="meta-bar">
+    <div class="meta-item"><label>Total de registros</label><span class="v-strong">${data.rows.length}</span></div>
+    <div class="meta-item"><label>Ordenação</label><span>${escHtml(sortLbl)} · ${escHtml(dirLbl)}</span></div>
+    <div class="meta-item"><label>Período</label><span>${escHtml(periodLbl)}</span></div>
+    <div class="meta-item"><label>Gerado em</label><span>${escHtml(tStr)}</span></div>
+  </div>
+
+  ${filterChips.length?`<div class="filter-chips">${filterChips.map(c=>`<span class="chip">${escHtml(c)}</span>`).join('')}</div>`:''}
+
+  <table>
+    <colgroup>${data.columns.map(c=>`<col style="width:${c.w};"/>`).join('')}</colgroup>
+    <thead><tr>${data.columns.map(c=>`<th${c.align?` style="text-align:${c.align};"`:''}>${escHtml(c.l)}</th>`).join('')}</tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+
+  <div class="doc-footer">
+    <span class="gen">Especifica Realize! · ${escHtml(tStr)}</span>
+    <span class="doc-footer-brand">${logo?`<img src="${logo}" alt="" style="width:14px;height:14px;object-fit:contain;"/>`:''} Realize Acabamentos</span>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+  const blob = new Blob([html],{type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url,'_blank');
+  if(!w){toast('Bloqueador de pop-ups impediu abrir. Permita pop-ups para gerar o PDF.');URL.revokeObjectURL(url);return;}
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  closeModal();
+  toast(`Relatório gerado · ${data.rows.length} registro${data.rows.length!==1?'s':''}`);
 }
 
 // ===== MODAL: PDF OPTIONS =====
@@ -5546,6 +6081,7 @@ function bind(){
     showConfirm('Excluir produto','Deseja excluir este produto do catálogo?',p?.nome,uses>0?`Vinculado a ${uses} item(s) de especificações.`:'',()=>{S.prods=S.prods.filter(p=>p.id!==id);save();toast('Produto removido.');});
   });
     const bsp=document.getElementById('btnSaveProd');if(bsp)bsp.onclick=saveProd;
+  const bgr=document.getElementById('btnGenReport');if(bgr)bgr.onclick=gerarRelatorio;
   // media helpers
   function compressImg(file,cb){
     const r=new FileReader();r.onload=ev=>{
