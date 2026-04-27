@@ -4581,7 +4581,7 @@ function buildSpecEditor(){
     <div class="spec-hdr-card">
       <div class="spec-hdr-kicker">ESPECIFICA\u00c7\u00c3O\u2002\u00b7\u2002${fmtDate(sessao.criadoEm)}</div>
       <div class="spec-hdr-title">${escHtml(sessao.projeto||'Sem t\u00edtulo')}</div>
-      <div class="spec-hdr-sub">${cli?escHtml(cli.obra||cli.nome):'Sem cliente'}</div>
+      <div class="spec-hdr-sub">${cli?escHtml(cli.nome):'Sem cliente'}</div>
       <div class="spec-hdr-chips">
         <span class="chip ${badgeCls}" style="font-size:10px;font-weight:700;">${badgeLbl}</span>
         ${arq?`<div class="client-arch-chip" style="padding:4px 10px 4px 4px;">
