@@ -2251,8 +2251,9 @@ let S={
   darkMode:DB.getVal('darkMode',false),
   chartRange:'6m',
   lastSave:DB.getVal('lastSave',null),
+  lastSaveMs:Number(DB.getVal('lastSaveMs',0))||0,
   sidebarOpen:false,
-  fbUser:null,fbSyncStatus:'idle',fbInitialized:false,cloudBackups:[],
+  fbUser:null,fbSyncStatus:'idle',fbInitialized:false,fbFirstLoad:false,fbUnsubscribe:null,cloudBackups:[],
   // report builder
   reportData:null,
 };
@@ -2260,8 +2261,11 @@ let S={
 function save(){
   DB.set('arq',S.arqs);DB.set('cli',S.clis);DB.set('prods',S.prods);
   DB.set('sessoes',S.sessoes);DB.set('specs',S.specs);
-  S.lastSave=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const now=new Date();
+  S.lastSave=now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  S.lastSaveMs=now.getTime();
   DB.set('lastSave',S.lastSave);
+  DB.set('lastSaveMs',String(S.lastSaveMs));
   if(S.fbUser)fbSaveAsync();
 }
 function toast(m){S.toast=m;render();setTimeout(()=>{S.toast=null;render();},2400);}
@@ -5027,39 +5031,56 @@ function fbLogin(){
 }
 
 function fbLogout(){
+  if(S.fbUnsubscribe){S.fbUnsubscribe();S.fbUnsubscribe=null;}
   fbAuth.signOut().then(()=>{S.fbUser=null;S.fbSyncStatus='idle';toast('Desconectado da nuvem');render();});
 }
 
-async function fbLoad(){
-  S.fbSyncStatus='syncing';render();
-  try{
-    const ref=fbDb.collection('users').doc(S.fbUser.uid).collection('data').doc('main');
-    const doc=await ref.get();
-    if(doc.exists){
-      const d=doc.data();
-      const cloudTime=d.updatedAt?.toMillis?.()||0;
-      const localMs=S.lastSave?new Date().setHours(...S.lastSave.split(':').map(Number),0,0):0;
-      if(cloudTime>=localMs){
-        S.arqs=d.arqs||[];S.clis=d.clis||[];S.prods=d.prods||[];
-        S.sessoes=d.sessoes||[];S.specs=d.specs||[];
-        DB.set('arq',S.arqs);DB.set('cli',S.clis);DB.set('prods',S.prods);
-        DB.set('sessoes',S.sessoes);DB.set('specs',S.specs);
-        toast('\u2714 Dados carregados da nuvem');
-      }else{
+function fbLoad(){
+  if(S.fbUnsubscribe){S.fbUnsubscribe();S.fbUnsubscribe=null;}
+  S.fbSyncStatus='syncing';S.fbFirstLoad=true;render();
+  const ref=fbDb.collection('users').doc(S.fbUser.uid).collection('data').doc('main');
+  S.fbUnsubscribe=ref.onSnapshot({includeMetadataChanges:true},async(doc)=>{
+    // Ignore local writes in-flight (our own saves before server confirms)
+    if(doc.metadata.hasPendingWrites)return;
+    try{
+      if(doc.exists){
+        const d=doc.data();
+        const cloudTime=d.updatedAt?.toMillis?.()||0;
+        const localTime=S.lastSaveMs||0;
+        if(S.fbFirstLoad&&localTime>cloudTime){
+          // First load and local data is genuinely newer: upload to cloud
+          S.fbFirstLoad=false;
+          await fbSaveAsync();
+          toast('\u2714 Dados locais enviados para a nuvem');
+        }else{
+          // Cloud is newer, equal, or this is a real-time update from another device
+          S.arqs=d.arqs||[];S.clis=d.clis||[];S.prods=d.prods||[];
+          S.sessoes=d.sessoes||[];S.specs=d.specs||[];
+          S.lastSaveMs=cloudTime;
+          DB.set('arq',S.arqs);DB.set('cli',S.clis);DB.set('prods',S.prods);
+          DB.set('sessoes',S.sessoes);DB.set('specs',S.specs);
+          DB.set('lastSaveMs',String(cloudTime));
+          if(S.fbFirstLoad){toast('\u2714 Dados carregados da nuvem');}
+          else{toast('\ud83d\udd04 Sincronizado com outro dispositivo');}
+          S.fbFirstLoad=false;
+        }
+      }else if(S.fbFirstLoad){
+        S.fbFirstLoad=false;
         await fbSaveAsync();
-        toast('\u2714 Dados locais enviados para a nuvem');
+        toast('\u2714 Primeira sincroniza\u00e7\u00e3o com a nuvem conclu\u00edda');
       }
-    }else{
-      await fbSaveAsync();
-      toast('\u2714 Primeira sincroniza\u00e7\u00e3o com a nuvem conclu\u00edda');
+      S.fbSyncStatus='synced';
+      autoBackupDaily();
+    }catch(e){
+      S.fbSyncStatus='error';
+      toast('Erro ao sincronizar: '+e.message);
     }
-    S.fbSyncStatus='synced';
-    autoBackupDaily();
-  }catch(e){
+    render();
+  },(e)=>{
     S.fbSyncStatus='error';
-    toast('Erro ao sincronizar: '+e.message);
-  }
-  render();
+    toast('Erro de sincroniza\u00e7\u00e3o: '+e.message);
+    render();
+  });
 }
 
 // ── AUTO-BACKUP DIÁRIO NA NUVEM ──────────────────────────────────
