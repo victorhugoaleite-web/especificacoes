@@ -746,6 +746,10 @@ body.dark .segmented button.on { background: rgba(255,255,255,0.12); }
   color: var(--danger);
   background: color-mix(in oklab, var(--danger) 14%, transparent);
 }
+.kpi-delta.neutral {
+  color: var(--text-3);
+  background: color-mix(in oklab, var(--text-3) 12%, transparent);
+}
 .kpi-delta svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.4; flex-shrink: 0; }
 
 /* ── Pipeline / funnel ──────────────────────────────── */
@@ -3074,12 +3078,15 @@ function buildDash(){
   });
   const specsPrev = sessoesPrev.length;
   const specsDelta = specsMes - specsPrev;
+  const hasSpecsPrev = specsPrev > 0;
   const valorPrevSum = vendidasPrev.reduce((a,s)=>a+parseVal(s.valorVenda),0);
   const ticketMedioPrev = vendidasPrev.length > 0 ? Math.round(valorPrevSum / vendidasPrev.length) : 0;
   const ticketDelta = ticketMedio - ticketMedioPrev;
+  const hasTicketPrev = vendidasPrev.length > 0;
   const fechadasPrev = sessoesPrev.filter(s=>s.vendaStatus==='vendido' || s.vendaStatus==='cancelado').length;
   const taxaPrev = fechadasPrev > 0 ? Math.round(vendidasPrev.length / fechadasPrev * 100) : 0;
   const taxaDelta = taxaFechamento - taxaPrev;
+  const hasTaxaPrev = fechadasPrev > 0;
 
   /* specs needing cotar */
   const specsCotarList = S.specs.filter(s => s.cotar && !s.preco).slice(0, 3);
@@ -3312,9 +3319,11 @@ function buildDash(){
       </div>
       <div class="kpi-value t-num">${specsMes}</div>
       <div class="kpi-sub">ativas neste mês</div>
-      <div class="kpi-delta ${specsDelta < 0 ? 'down' : ''}">
-        ${icoSVG(specsDelta >= 0 ? 'arrowup' : 'arrowdown',10)}<span>${specsDelta >= 0 ? '+' : ''}${specsDelta} vs mês anterior</span>
-      </div>
+      ${hasSpecsPrev
+        ? `<div class="kpi-delta ${specsDelta < 0 ? 'down' : ''}">
+             ${icoSVG(specsDelta >= 0 ? 'arrowup' : 'arrowdown',10)}<span>${specsDelta >= 0 ? '+' : ''}${specsDelta} vs mês anterior</span>
+           </div>`
+        : `<div class="kpi-delta neutral"><span>sem dado anterior</span></div>`}
     </div>
     <div class="glass kpi">
       <div class="kpi-head">
@@ -3323,9 +3332,11 @@ function buildDash(){
       </div>
       <div class="kpi-value t-num">${ticketMedio > 0 ? fmtK(ticketMedio) : '—'}</div>
       <div class="kpi-sub">por especificação</div>
-      <div class="kpi-delta ${ticketDelta < 0 ? 'down' : ''}">
-        ${icoSVG(ticketDelta >= 0 ? 'arrowup' : 'arrowdown',10)}<span>${ticketDelta >= 0 ? '+' : '−'}${fmtK(Math.abs(ticketDelta))} vs mês anterior</span>
-      </div>
+      ${hasTicketPrev
+        ? `<div class="kpi-delta ${ticketDelta < 0 ? 'down' : ''}">
+             ${icoSVG(ticketDelta >= 0 ? 'arrowup' : 'arrowdown',10)}<span>${ticketDelta >= 0 ? '+' : '−'}${fmtK(Math.abs(ticketDelta))} vs mês anterior</span>
+           </div>`
+        : `<div class="kpi-delta neutral"><span>sem dado anterior</span></div>`}
     </div>
     <div class="glass kpi">
       <div class="kpi-head">
@@ -3334,9 +3345,11 @@ function buildDash(){
       </div>
       <div class="kpi-value t-num">${taxaFechamento}%</div>
       <div class="kpi-sub">vendido / (vendido + cancelado)</div>
-      <div class="kpi-delta ${taxaDelta < 0 ? 'down' : ''}">
-        ${icoSVG(taxaDelta >= 0 ? 'arrowup' : 'arrowdown', 10)}<span>${taxaDelta >= 0 ? '+' : '−'}${Math.abs(taxaDelta)}pp vs mês anterior</span>
-      </div>
+      ${hasTaxaPrev
+        ? `<div class="kpi-delta ${taxaDelta < 0 ? 'down' : ''}">
+             ${icoSVG(taxaDelta >= 0 ? 'arrowup' : 'arrowdown', 10)}<span>${taxaDelta >= 0 ? '+' : '−'}${Math.abs(taxaDelta)}pp vs mês anterior</span>
+           </div>`
+        : `<div class="kpi-delta neutral"><span>sem dado anterior</span></div>`}
     </div>
     <div class="glass kpi">
       <div class="kpi-head">
