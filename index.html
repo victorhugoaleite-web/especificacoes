@@ -2225,8 +2225,10 @@ const DB={
 };
 
 // ===== STATE =====
+const restoredPage=sessionStorage.getItem('restorePageAfterDelete')||'dashboard';
+sessionStorage.removeItem('restorePageAfterDelete');
 let S={
-  page:'dashboard',
+  page:restoredPage,
   arqs:DB.get('arq'), clis:DB.get('cli'), prods:DB.get('prods'),
   sessoes:DB.get('sessoes'),   // spec sessions (projects)
   specs:DB.get('specs'),       // individual items (have sessaoId)
@@ -6483,7 +6485,12 @@ function deleteSessaoById(id){
     S.page='specs';
   }
   save();
-  if(existed)toast('Especificação excluída.');
+  if(existed){
+    S.toast='Especificação excluída.';
+    sessionStorage.setItem('restorePageAfterDelete','specs');
+    setTimeout(()=>location.reload(),30);
+    return;
+  }
   render();
 }
 function confirmDeleteSessao(id,e){
