@@ -713,7 +713,7 @@ body.dark .segmented button.on { background: rgba(255,255,255,0.12); }
 
 /* ── KPI grid ───────────────────────────────────────── */
 .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 16px; }
-.kpi { padding: 14px 14px 12px; border-radius: 22px; position: relative; overflow: hidden; }
+.kpi { padding: 14px 14px 12px; border-radius: 22px; position: relative; overflow: hidden; display: flex; flex-direction: column; }
 .kpi-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .kpi-ico {
   width: 26px; height: 26px; border-radius: 8px;
@@ -728,12 +728,25 @@ body.dark .segmented button.on { background: rgba(255,255,255,0.12); }
 .kpi-value { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; line-height: 1.1; }
 .kpi-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; letter-spacing: -0.1px; }
 .kpi-delta {
-  position: absolute; top: 14px; right: 14px;
-  font-size: 11px; font-weight: 600; color: var(--ok);
-  display: flex; align-items: center; gap: 2px;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10.5px; font-weight: 600;
+  color: var(--ok);
+  background: color-mix(in oklab, var(--ok) 14%, transparent);
+  display: inline-flex; align-items: center; gap: 3px;
+  line-height: 1;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.kpi-delta.down { color: var(--danger); }
-.kpi-delta svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.4; }
+.kpi-delta.down {
+  color: var(--danger);
+  background: color-mix(in oklab, var(--danger) 14%, transparent);
+}
+.kpi-delta svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.4; flex-shrink: 0; }
 
 /* ── Pipeline / funnel ──────────────────────────────── */
 .pipeline { padding: 16px 16px 14px; border-radius: 24px; }
@@ -992,18 +1005,8 @@ body.same-page-render .screen-in { animation: none !important; }
   .kpis { gap: 8px; }
   .kpi {
     padding: 12px 12px 10px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "head delta"
-      "value value"
-      "sub sub";
-    column-gap: 8px;
-    align-items: start;
   }
   .kpi-head {
-    grid-area: head;
-    min-width: 0;
     align-items: flex-start;
     gap: 7px;
     margin-bottom: 7px;
@@ -1013,27 +1016,12 @@ body.same-page-render .screen-in { animation: none !important; }
     line-height: 1.15;
   }
   .kpi-delta {
-    grid-area: delta;
-    position: static;
-    justify-self: end;
-    align-self: start;
-    max-width: 58px;
-    padding: 2px 5px;
-    border-radius: 999px;
-    background: color-mix(in oklab, var(--ok) 14%, transparent);
+    margin-top: 5px;
+    padding: 2px 6px;
     font-size: 9.5px;
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .kpi-delta.down {
-    background: color-mix(in oklab, var(--danger) 14%, transparent);
   }
   .kpi-value {
-    grid-area: value;
     font-size: 20px;
-  }
-  .kpi-sub {
-    grid-area: sub;
   }
   .funnel { gap: 4px; }
   .funnel-count { font-size: 18px; }
@@ -1898,8 +1886,6 @@ body.dark::after {
   }
 
   .kpi-delta {
-    top: 10px;
-    right: 10px;
     font-size: 10px;
   }
 
