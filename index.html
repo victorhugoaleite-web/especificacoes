@@ -2808,6 +2808,33 @@ function normalizeSearchText(v){
 function searchTokens(v){
   return normalizeSearchText(v).split(/[^a-z0-9]+/).filter(Boolean);
 }
+function fieldHasQuery(value, queryTokens){
+  if(value==null||value==='')return false;
+  const s=normalizeSearchText(value);
+  const words=s.split(/[^a-z0-9]+/).filter(Boolean);
+  const compact=s.replace(/[^a-z0-9]/g,'');
+  return queryTokens.some(q=>words.some(w=>w.startsWith(q))||compact.includes(q));
+}
+function highlightQuery(value, rawQ){
+  const str=String(value||'');
+  if(!rawQ||!str)return escHtml(str);
+  const tokens=searchTokens(rawQ);
+  if(!tokens.length)return escHtml(str);
+  const norm=normalizeSearchText(str);
+  const ranges=[];
+  tokens.forEach(t=>{
+    let i=0;
+    while((i=norm.indexOf(t,i))!==-1){ranges.push([i,i+t.length]);i+=t.length||1;}
+  });
+  if(!ranges.length)return escHtml(str);
+  ranges.sort((a,b)=>a[0]-b[0]);
+  const merged=[];
+  ranges.forEach(r=>{const last=merged[merged.length-1];if(last&&r[0]<=last[1])last[1]=Math.max(last[1],r[1]);else merged.push([r[0],r[1]]);});
+  let out='',pos=0;
+  merged.forEach(([a,b])=>{out+=escHtml(str.slice(pos,a))+'<mark style="background:rgba(250,204,21,.30);color:inherit;border-radius:3px;padding:0 2px;">'+escHtml(str.slice(a,b))+'</mark>';pos=b;});
+  out+=escHtml(str.slice(pos));
+  return out;
+}
 function matchQ(fields, rawQ){
   if(!rawQ) return true;
   const queryTokens=searchTokens(rawQ);
@@ -4019,6 +4046,49 @@ function buildSpecsList(){
     const badgeLbl=isVend?'Vendida':isCanceled?'Cancelada':isConc?'Conclu\u00edda':'Rascunho';
     const cardStateCls=isVend?' is-sold':isCanceled?' is-canceled':isConc?' is-open':' is-draft';
     const dateLbl=isCanceled?'Cancelada em '+fmtDate(s.canceladoEm||s.concluidoEm||s.criadoEm):isVend?'Vendida em '+fmtDate(s.vendidoEm||s.concluidoEm||s.criadoEm):isConc?'Conclu\u00edda em '+fmtDate(s.concluidoEm||s.criadoEm):'Criada em '+fmtDate(s.criadoEm);
+    let matchHTML='';
+    if(qSpec){
+      const qTok=searchTokens(qSpec);
+      const labeled=[];
+      const push=(lbl,val)=>{if(val!=null&&val!==''&&fieldHasQuery(val,qTok))labeled.push({lbl,val:String(val)});};
+      push('Cliente',cli&&cli.nome);
+      push('Obra',cli&&cli.obra);
+      push('Email cli.',cli&&cli.email);
+      push('Tel.',cli&&cli.telefone);
+      push('Arquiteto',arq&&arq.nome);
+      push('Escrit\u00f3rio',arq&&arq.escritorio);
+      push('Status',isVend?'Vendida':isCanceled?'Cancelada':isConc?'Em aberto':'Rascunho');
+      const its=sessaoItems(s.id);
+      const seenProd=new Set();
+      its.forEach(it=>{
+        const prod=it.prodId?S.prods.find(p=>p.id===it.prodId):null;
+        const fields=[
+          ['Produto',it.produto||(prod&&prod.nome)],
+          ['Marca',it.marca||(prod&&prod.marca)],
+          ['Tipo',it.tipo||(prod&&prod.tipo)],
+          ['C\u00f3digo',it.codigo||(prod&&prod.codigo)],
+          ['Refer\u00eancia',it.referencia||(prod&&prod.referencia)],
+          ['Ambiente',it.ambiente],
+          ['Obs.',it.obs]
+        ];
+        fields.forEach(([lbl,val])=>{
+          if(val==null||val==='')return;
+          if(!fieldHasQuery(val,qTok))return;
+          const k=lbl+'|'+val;
+          if(seenProd.has(k))return;
+          seenProd.add(k);
+          labeled.push({lbl,val:String(val)});
+        });
+      });
+      if(labeled.length){
+        const shown=labeled.slice(0,5);
+        const more=labeled.length-shown.length;
+        matchHTML='<div class="spec-match-row" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:10px;border-top:0.5px dashed rgba(250,204,21,.25);">'
+          +shown.map(m=>'<span class="chip" style="font-size:10.5px;background:rgba(250,204,21,.10);border-color:rgba(250,204,21,.28);color:inherit;"><span style="opacity:.55;font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:9px;margin-right:4px;">'+m.lbl+'</span>'+highlightQuery(m.val,qSpec)+'</span>').join('')
+          +(more>0?'<span class="chip" style="font-size:10.5px;opacity:.6;">+'+more+'</span>':'')
+          +'</div>';
+      }
+    }
     const pdfIco='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
     const shareIco='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
     const trashIco='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>';
@@ -4042,6 +4112,7 @@ function buildSpecsList(){
         ${fa>0?`<span class="chip">${fa} sem cota\u00e7\u00e3o</span>`:''}
       </div>
       <div class="spec-full-date">${dateLbl}</div>
+      ${matchHTML}
       <div class="spec-full-actions" onclick="event.stopPropagation()">
         <button class="spec-main-btn${isViewOnly?' done':''}" onclick="S.activeSessaoId='${s.id}';S.addRow=false;S.addData={};S.page='spec-editor';render()">
           ${isViewOnly?eyeIco:editIco} ${isViewOnly?'Visualizar':'Continuar'}
