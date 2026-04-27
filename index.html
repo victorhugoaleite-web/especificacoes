@@ -3076,9 +3076,24 @@ function buildDash(){
   /* KPIs */
   const ticketMedio = vendidasMes.length > 0 ? Math.round(valorVendidoMes / vendidasMes.length) : 0;
   const specsMes = sessoesMes.length;
-  const taxaFechamento = S.sessoes.filter(s=>s.status==='concluida').length > 0
-    ? Math.round(vendidas.length / S.sessoes.filter(s=>s.status==='concluida').length * 100)
+  const fechadasGlobal = S.sessoes.filter(s=>s.vendaStatus==='vendido' || s.vendaStatus==='cancelado').length;
+  const taxaFechamento = fechadasGlobal > 0
+    ? Math.round(vendidas.length / fechadasGlobal * 100)
     : 0;
+
+  /* deltas reais (mês atual vs mês anterior) */
+  const sessoesPrev = S.sessoes.filter(s => {
+    const d = s.criadoEm ? new Date(s.criadoEm) : null;
+    return d && d.getMonth()===prevMonth && d.getFullYear()===prevYear;
+  });
+  const specsPrev = sessoesPrev.length;
+  const specsDelta = specsMes - specsPrev;
+  const valorPrevSum = vendidasPrev.reduce((a,s)=>a+parseVal(s.valorVenda),0);
+  const ticketMedioPrev = vendidasPrev.length > 0 ? Math.round(valorPrevSum / vendidasPrev.length) : 0;
+  const ticketDelta = ticketMedio - ticketMedioPrev;
+  const fechadasPrev = sessoesPrev.filter(s=>s.vendaStatus==='vendido' || s.vendaStatus==='cancelado').length;
+  const taxaPrev = fechadasPrev > 0 ? Math.round(vendidasPrev.length / fechadasPrev * 100) : 0;
+  const taxaDelta = taxaFechamento - taxaPrev;
 
   /* specs needing cotar */
   const specsCotarList = S.specs.filter(s => s.cotar && !s.preco).slice(0, 3);
@@ -3101,6 +3116,26 @@ function buildDash(){
     .map((a,i) => ({ ...a, sold: arqMap[a.id]?.val||0, deals: arqMap[a.id]?.count||0, color: arqColors[i%arqColors.length] }))
     .sort((a,b) => b.sold - a.sold)
     .slice(0, 4);
+
+  /* Insight do arquiteto top: taxa de fechamento real + marca mais especificada */
+  let topArqTaxa = 0;
+  let topArqMarca = '';
+  if(topArqs[0] && topArqs[0].deals > 0){
+    const topId = topArqs[0].id;
+    const cliIds = S.clis.filter(c=>c.arquitetoId===topId).map(c=>c.id);
+    const sessArq = S.sessoes.filter(s=>cliIds.includes(s.clienteId));
+    const fechadasArq = sessArq.filter(s=>s.vendaStatus==='vendido' || s.vendaStatus==='cancelado').length;
+    const vendArq = sessArq.filter(s=>s.vendaStatus==='vendido').length;
+    topArqTaxa = fechadasArq > 0 ? Math.round(vendArq/fechadasArq*100) : 0;
+    const marcaCount = {};
+    sessArq.filter(s=>s.vendaStatus==='vendido').forEach(s=>{
+      sessaoItems(s.id).forEach(it=>{
+        if(it.marca && it.marca.trim()) marcaCount[it.marca] = (marcaCount[it.marca]||0) + 1;
+      });
+    });
+    const sortedMarcas = Object.entries(marcaCount).sort((a,b)=>b[1]-a[1]);
+    if(sortedMarcas.length) topArqMarca = sortedMarcas[0][0];
+  }
 
   /* recent specs */
   const recentSessoes = [...S.sessoes].sort((a,b)=>{
@@ -3291,8 +3326,8 @@ function buildDash(){
       </div>
       <div class="kpi-value t-num">${specsMes}</div>
       <div class="kpi-sub">ativas neste mês</div>
-      <div class="kpi-delta">
-        ${icoSVG('arrowup',10)}<span>+${Math.max(0,specsMes-5)}</span>
+      <div class="kpi-delta ${specsDelta < 0 ? 'down' : ''}">
+        ${icoSVG(specsDelta >= 0 ? 'arrowup' : 'arrowdown',10)}<span>${specsDelta >= 0 ? '+' : ''}${specsDelta} vs mês anterior</span>
       </div>
     </div>
     <div class="glass kpi">
@@ -3302,8 +3337,8 @@ function buildDash(){
       </div>
       <div class="kpi-value t-num">${ticketMedio > 0 ? fmtK(ticketMedio) : '—'}</div>
       <div class="kpi-sub">por especificação</div>
-      <div class="kpi-delta">
-        ${icoSVG('arrowup',10)}<span>+${fmtK(Math.max(0,ticketMedio*0.08))}</span>
+      <div class="kpi-delta ${ticketDelta < 0 ? 'down' : ''}">
+        ${icoSVG(ticketDelta >= 0 ? 'arrowup' : 'arrowdown',10)}<span>${ticketDelta >= 0 ? '+' : '−'}${fmtK(Math.abs(ticketDelta))} vs mês anterior</span>
       </div>
     </div>
     <div class="glass kpi">
@@ -3312,9 +3347,9 @@ function buildDash(){
         <div class="kpi-label">Taxa de fechamento</div>
       </div>
       <div class="kpi-value t-num">${taxaFechamento}%</div>
-      <div class="kpi-sub">orçado → vendido</div>
-      <div class="kpi-delta ${taxaFechamento < 30 ? 'down' : ''}">
-        ${icoSVG(taxaFechamento >= 30 ? 'arrowup' : 'arrowdown', 10)}<span>${taxaFechamento >= 30 ? '+' : '−'}${Math.abs(Math.round(taxaFechamento * 0.05))}%</span>
+      <div class="kpi-sub">vendido / (vendido + cancelado)</div>
+      <div class="kpi-delta ${taxaDelta < 0 ? 'down' : ''}">
+        ${icoSVG(taxaDelta >= 0 ? 'arrowup' : 'arrowdown', 10)}<span>${taxaDelta >= 0 ? '+' : '−'}${Math.abs(taxaDelta)}pp vs mês anterior</span>
       </div>
     </div>
     <div class="glass kpi">
@@ -3368,11 +3403,13 @@ function buildDash(){
         <span style="font-size:11px;font-weight:700;letter-spacing:0.8px;color:rgba(255,255,255,0.6);">INSIGHT</span>
       </div>
       <div style="font-size:15px;font-weight:500;color:#fff;line-height:1.5;margin-bottom:14px;">
-        ${topArqs.length > 0 && topArqs[0].deals > 0 && taxaFechamento > 0
-          ? `Sua taxa de fechamento com <b>${topArqs[0].nome}</b> subiu para <b>${taxaFechamento}%</b>. Considere priorizar o catálogo ${topArqs[0].escritorio||'dele'} nas próximas specs.`
+        ${topArqs.length > 0 && topArqs[0].deals > 0 && topArqTaxa > 0
+          ? topArqMarca
+            ? `Sua taxa de fechamento com <b>${topArqs[0].nome}</b> está em <b>${topArqTaxa}%</b>. <b>${topArqMarca}</b> é a marca mais vendida nas specs dela — vale priorizar nas próximas.`
+            : `Sua taxa de fechamento com <b>${topArqs[0].nome}</b> está em <b>${topArqTaxa}%</b>${topArqs[0].escritorio?` (${topArqs[0].escritorio})`:''}. Mantenha o ritmo nas próximas specs.`
           : taxaFechamento >= 50
-          ? `Taxa de conversão em <b>${taxaFechamento}%</b> — ótimo desempenho! Foque nos arquitetos mais ativos para acelerar ainda mais.`
-          : `Taxa de conversão em <b>${taxaFechamento}%</b>. Foque nas specs mais antigas para fechar mais negócios.`
+          ? `Taxa de conversão geral em <b>${taxaFechamento}%</b> — ótimo desempenho! Foque nos arquitetos mais ativos para acelerar ainda mais.`
+          : `Taxa de conversão geral em <b>${taxaFechamento}%</b>. Foque nas specs mais antigas para fechar mais negócios.`
         }
       </div>
       <div style="display:flex;gap:8px;">
