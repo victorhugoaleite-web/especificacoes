@@ -3975,7 +3975,14 @@ function buildSpecsList(){
   if(qSpec)allList=allList.filter(s=>{
     const cli=S.clis.find(c=>c.id===s.clienteId);
     const arq=cli?S.arqs.find(a=>a.id===cli.arquitetoId):null;
-    return matchQ([s.projeto,cli&&cli.nome,cli&&cli.obra,arq&&arq.nome],qSpec);
+    const its=sessaoItems(s.id);
+    const fields=[s.projeto,s.status,s.vendaStatus,cli&&cli.nome,cli&&cli.obra,cli&&cli.email,cli&&cli.telefone,arq&&arq.nome,arq&&arq.escritorio,arq&&arq.email];
+    its.forEach(it=>{
+      fields.push(it.produto,it.tipo,it.marca,it.codigo,it.referencia,it.ambiente,it.cotar,it.separado,it.unid,it.obs);
+      const prod=it.prodId?S.prods.find(p=>p.id===it.prodId):null;
+      if(prod)fields.push(prod.nome,prod.marca,prod.tipo,prod.codigo,prod.referencia);
+    });
+    return matchQ(fields,qSpec);
   });
 
   const nTot=S.sessoes.length;
