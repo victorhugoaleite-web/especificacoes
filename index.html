@@ -5040,8 +5040,9 @@ function fbLoad(){
   S.fbSyncStatus='syncing';S.fbFirstLoad=true;render();
   const ref=fbDb.collection('users').doc(S.fbUser.uid).collection('data').doc('main');
   S.fbUnsubscribe=ref.onSnapshot({includeMetadataChanges:true},async(doc)=>{
-    // Ignore local writes in-flight (our own saves before server confirms)
-    if(doc.metadata.hasPendingWrites)return;
+    // Ignore local writes in-flight and stale Firestore cache.
+    // fromCache=true fires first with old cached data — only act on server-confirmed data.
+    if(doc.metadata.hasPendingWrites||doc.metadata.fromCache)return;
     try{
       if(doc.exists){
         const d=doc.data();
