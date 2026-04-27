@@ -125,6 +125,8 @@ body.dark .aurora-blob{opacity:0.4;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html{font-size:14px;}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;transition:background .4s var(--ease-out),color .4s var(--ease-out);}
+#app{opacity:0;transition:opacity .25s ease;}
+body.app-ready #app{opacity:1;}
 
 /* Evita auto-zoom do iOS Safari ao focar inputs (trigger ocorre se font-size<16px) */
 @media (max-width:768px){
@@ -6452,6 +6454,7 @@ function saveCli(){
 }
 
 render();
+requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('app-ready')));
 initFirebase();
 
 // ===== PWA SETUP=====
