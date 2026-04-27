@@ -5007,6 +5007,8 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 const FB_CONFIG={apiKey:"AIzaSyCiPqRI0HJAUXN6gVCiAxSL7FJM66z-ox8",authDomain:"especificacoes-realize.firebaseapp.com",projectId:"especificacoes-realize",storageBucket:"especificacoes-realize.firebasestorage.app",messagingSenderId:"798852174843",appId:"1:798852174843:web:74258a14ebea7a573a715e"};
 let fbApp=null,fbAuth=null,fbDb=null;
 
+function appReady(){document.body.classList.add('app-ready');}
+
 function initFirebase(){
   if(S.fbInitialized)return;
   try{
@@ -5017,9 +5019,9 @@ function initFirebase(){
     fbAuth.onAuthStateChanged(user=>{
       S.fbUser=user;
       if(user){fbLoad();loadCloudBackups();}
-      else{S.fbSyncStatus='idle';S.cloudBackups=[];render();}
+      else{S.fbSyncStatus='idle';S.cloudBackups=[];render();appReady();}
     });
-  }catch(e){console.error('Firebase init:',e);}
+  }catch(e){console.error('Firebase init:',e);appReady();}
 }
 
 function fbLogin(){
@@ -5035,7 +5037,7 @@ function fbLogout(){
 
 function fbLoad(){
   if(S.fbUnsubscribe){S.fbUnsubscribe();S.fbUnsubscribe=null;}
-  S.fbSyncStatus='syncing';S.fbFirstLoad=true;render();
+  S.fbSyncStatus='syncing';S.fbFirstLoad=true;
   const ref=fbDb.collection('users').doc(S.fbUser.uid).collection('data').doc('main');
   S.fbUnsubscribe=ref.onSnapshot({includeMetadataChanges:true},async(doc)=>{
     // Ignore local writes in-flight and stale Firestore cache.
@@ -5050,36 +5052,57 @@ function fbLoad(){
           // First load and local data is genuinely newer: upload to cloud
           S.fbFirstLoad=false;
           await fbSaveAsync();
-          toast('\u2714 Dados locais enviados para a nuvem');
         }else{
-          // Cloud is newer, equal, or this is a real-time update from another device
+          // Cloud is newer, equal, or real-time update from another device
           S.arqs=d.arqs||[];S.clis=d.clis||[];S.prods=d.prods||[];
           S.sessoes=d.sessoes||[];S.specs=d.specs||[];
           S.lastSaveMs=cloudTime;
           DB.set('arq',S.arqs);DB.set('cli',S.clis);DB.set('prods',S.prods);
           DB.set('sessoes',S.sessoes);DB.set('specs',S.specs);
           DB.set('lastSaveMs',String(cloudTime));
-          if(S.fbFirstLoad){toast('\u2714 Dados carregados da nuvem');}
-          else{toast('\ud83d\udd04 Sincronizado com outro dispositivo');}
-          S.fbFirstLoad=false;
+          if(S.fbFirstLoad){
+            // First load: render once then show app (boot mask still covers this render)
+            S.fbFirstLoad=false;
+            S.fbSyncStatus='synced';
+            autoBackupDaily();
+            render();
+            appReady();
+            return;
+          }else{
+            // Real-time update: apply data silently, never interrupt the user
+            S.fbSyncStatus='synced';
+            syncSilent();
+            return;
+          }
         }
       }else if(S.fbFirstLoad){
         S.fbFirstLoad=false;
         await fbSaveAsync();
-        toast('\u2714 Primeira sincroniza\u00e7\u00e3o com a nuvem conclu\u00edda');
       }
       S.fbSyncStatus='synced';
       autoBackupDaily();
+      render();
+      appReady();
     }catch(e){
       S.fbSyncStatus='error';
-      toast('Erro ao sincronizar: '+e.message);
+      render();
+      appReady();
     }
-    render();
   },(e)=>{
     S.fbSyncStatus='error';
-    toast('Erro de sincroniza\u00e7\u00e3o: '+e.message);
     render();
+    appReady();
   });
+}
+
+function syncSilent(){
+  // Data already updated in S — re-render only when safe (no modal, no active input)
+  if(S.modal)return;
+  const active=document.activeElement;
+  if(active&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA'))return;
+  const scrollY=window.scrollY||document.documentElement.scrollTop;
+  render();
+  requestAnimationFrame(()=>window.scrollTo({top:scrollY,behavior:'instant'}));
 }
 
 // ── AUTO-BACKUP DIÁRIO NA NUVEM ──────────────────────────────────
@@ -6479,8 +6502,9 @@ function saveCli(){
 }
 
 render();
-requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('app-ready')));
 initFirebase();
+// Safety timeout: show app after 4s even if Firebase fails or is slow
+setTimeout(appReady, 4000);
 
 // ===== PWA SETUP=====
 function setupPWA(){
