@@ -124,9 +124,11 @@ body.dark .aurora-blob{opacity:0.4;}
 
 *{box-sizing:border-box;margin:0;padding:0;}
 html{font-size:14px;}
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;transition:background .4s var(--ease-out),color .4s var(--ease-out);}
-#app{opacity:0;transition:opacity .25s ease;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+#app{opacity:0;transition:opacity .2s ease;}
 body.app-ready #app{opacity:1;}
+#boot-mask{position:fixed;inset:0;z-index:99999;background:var(--bg);pointer-events:none;transition:opacity .2s ease;}
+body.app-ready #boot-mask{opacity:0;pointer-events:none;}
 
 /* Evita auto-zoom do iOS Safari ao focar inputs (trigger ocorre se font-size<16px) */
 @media (max-width:768px){
@@ -2194,6 +2196,9 @@ body.dark::after {
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
+<script>try{if(JSON.parse(localStorage.getItem('darkMode')))document.body.classList.add('dark');}catch(e){}</script>
+<!-- Boot mask: cobre tela durante carregamento até app estar pronto -->
+<div id="boot-mask"></div>
 <!-- Aurora background -->
 <div class="aurora">
   <div class="aurora-blob"></div>
