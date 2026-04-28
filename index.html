@@ -6169,6 +6169,14 @@ function bind(){
     showConfirm('Excluir produto','Deseja excluir este produto do catálogo?',p?.nome,uses>0?`Vinculado a ${uses} item(s) de especificações.`:'',()=>{S.prods=S.prods.filter(p=>p.id!==id);save();toast('Produto removido.');});
   });
     const bsp=document.getElementById('btnSaveProd');if(bsp)bsp.onclick=saveProd;
+  const bdp=document.getElementById('btnDeleteProd');if(bdp)bdp.onclick=()=>{
+    const id=S.editItem?.id;if(!id)return;
+    const p=S.prods.find(p=>p.id===id);
+    const uses=S.specs.filter(s=>s.produtoId===id).length;
+    showConfirm('Excluir produto','Deseja excluir este produto do catálogo?',p?.nome,uses>0?`Vinculado a ${uses} item(s) de especificações.`:'',()=>{
+      S.prods=S.prods.filter(p=>p.id!==id);save();closeModal();toast('Produto removido.');
+    });
+  };
   const bgr=document.getElementById('btnGenReport');if(bgr)bgr.onclick=gerarRelatorio;
   // media helpers
   function compressImg(file,cb){
